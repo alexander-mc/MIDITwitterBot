@@ -1,0 +1,24 @@
+{
+  "name": "bachbot",
+  "version": "1.0.0",
+  "description": "js bach twitter bot",
+  "main": "bot.js",
+  "scripts": {
+    "start": "node bot.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "js",
+    "bach",
+    "baroque",
+    "classical",
+    "music",
+    "twitter",
+    "bot"
+  ],
+  "author": "robby",
+  "license": "ISC",
+  "dependencies": {
+    "twit": "^2.2.3"
+  }
+}
