@@ -1,18 +1,123 @@
-
 var noteNames = [
-// 'c,,,,,',
-// 'cis,,,,,',
-// 'd,,,,,',
-// 'dis,,,,,',
-// 'e,,,,,',
-// 'f,,,,,',
-// 'fis,,,,,',
-// 'g,,,,,',
-// 'gis,,,,,',
-// 'a,,,,,',
-// 'ais,,,,,',
-// 'b,,,,,',
+'c,,,,',
+'cis,,,,',
+'d,,,,',
+'ees,,,,',
+'e,,,,',
+'f,,,,',
+'fis,,,,',
+'g,,,,',
+'aes,,,,',
+'a,,,,',
+'bes,,,,',
+'b,,,,',
 
+'c,,,',
+'cis,,,',
+'d,,,',
+'ees,,,',
+'e,,,',
+'f,,,',
+'fis,,,',
+'g,,,',
+'aes,,,',
+'a,,,',
+'bes,,,',
+'b,,,',
+
+'c,,',
+'cis,,',
+'d,,',
+'ees,,',
+'e,,',
+'f,,',
+'fis,,',
+'g,,',
+'aes,,',
+'a,,',
+'bes,,',
+'b,,',
+
+'c,',
+'cis,',
+'d,',
+'ees,',
+'e,',
+'f,',
+'fis,',
+'g,',
+'aes,',
+'a,',
+'bes,',
+'b,',
+
+'c',
+'cis',
+'d',
+'ees',
+'e',
+'f',
+'fis',
+'g',
+'aes',
+'a',
+'bes',
+'b',
+
+'c\'',
+'cis\'',
+'d\'',
+'ees\'',
+'e\'',
+'f\'',
+'fis\'',
+'g\'',
+'aes\'',
+'a\'',
+'bes\'',
+'b\'',
+
+'c\'\'',
+'cis\'\'',
+'d\'\'',
+'ees\'\'',
+'e\'\'',
+'f\'\'',
+'fis\'\'',
+'g\'\'',
+'aes\'\'',
+'a\'\'',
+'bes\'\'',
+'b\'\'',
+
+'c\'\'\'',
+'cis\'\'\'',
+'d\'\'\'',
+'ees\'\'\'',
+'e\'\'\'',
+'f\'\'\'',
+'fis\'\'\'',
+'g\'\'\'',
+'aes\'\'\'',
+'a\'\'\'',
+'bes\'\'\'',
+'b\'\'\'',
+
+'c\'\'\'\'',
+'cis\'\'\'\'',
+'d\'\'\'\'',
+'ees\'\'\'\'',
+'e\'\'\'\'',
+'f\'\'\'\'',
+'fis\'\'\'\'',
+'g\'\'\'\'',
+'aes\'\'\'\'',
+'a\'\'\'\'',
+'bes\'\'\'\'',
+'b\'\'\'\'',
+];
+
+var noteNamesSharps = [
 'c,,,,',
 'cis,,,,',
 'd,,,,',
@@ -302,10 +407,14 @@ function getTempoAtTime(time){
 	return tempos[closestIndex];
 }
 
+// var measure_num = Math.floor(Math.random()*48)
+var measure_num = 5;
+console.log(measure_num);
 
 var MEASURE_LENGTH = 960;
-var trimBegin = 14400;
-var trimLength = MEASURE_LENGTH * 2;
+// var trimBegin = 14400;
+var trimBegin = 360 * measure_num;
+var trimLength = 360 * 4;
 
 var currentKey;
 var currentTimeSignature;
@@ -321,10 +430,12 @@ function printNoteValues(noteOnEntries){
 	var keys = Object.keys(noteOnEntries);
 	for(var v = 2; v < keys.length; v++){
 
+		var clef = 'treble';
+		if(v == 3) clef = 'bass';
 		var timeSignatureString = '\\time ' + currentTimeSignature['numerator'] + '/' + currentTimeSignature['denominator'];
 
 		document.getElementById("textSection").innerHTML = document.getElementById("textSection").innerHTML + '\\new Staff {' + '<br>' + 
-		'\\clef "treble"' + '<br>' + 
+		'\\clef "' + clef + '"' + '<br>' + 
 		'\\key d \\minor' + '<br>' + 
 		timeSignatureString + '<br>';
 
@@ -372,7 +483,7 @@ function parseMIDIFileArray(midiFileArray){
 	console.log('current tempo');
 	console.log(currentTempo);
 
-	var noteOns = getAllNoteOnBetweenTimes(midiFileArray, trimBegin, trimBegin + MEASURE_LENGTH * 2);
+	var noteOns = getAllNoteOnBetweenTimes(midiFileArray, trimBegin, trimBegin + trimLength);
 	console.log(noteOns);
 
 	printNoteValues(noteOns);

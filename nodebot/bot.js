@@ -21,20 +21,27 @@ console.log('The bot is starting..');
 /////////////////////////////////////////////////////////
 ////////////////     TERMINAL     ///////////////////////
 /////////////////////////////////////////////////////////
+
 var exec = require('child_process').exec;
 var fs = require('fs');
-var cmd = '/Applications/LilyPond.app/Contents/Resources/bin/lilypond Untitled.ly';
-exec(cmd, processing);
+var cmd = '/Applications/LilyPond.app/Contents/Resources/bin/lilypond -fpng -dresolution=220 -o ../music ../music.ly';
+exec(cmd, lilyPondFinished);
 
-function processing() {
-	var filename = 'output.png';
+function lilyPondFinished(){
+	// 1819 × 2572
+	var cmd = 'convert -crop 1700x400+119+0 ../music.png ../music.png';
+	exec(cmd, croppingFinished);
+}
+
+function croppingFinished() {
+	var filename = '../music.png';
 	var params = { encoding: 'base64' }
 	var b64 = fs.readFileSync(filename, params);
 	T.post('media/upload', { media_data: b64 }, uploaded);
 	function uploaded(err, data, response){
 		var id = data.media_id_string;
 		var tweet = {
-			status: 'tweet message',
+			status: '',  // BWV 775: Invention 4 in D minor
 			media_ids: [id]
 		}
 		T.post('statuses/update', tweet, tweeted);
@@ -43,7 +50,7 @@ function processing() {
 				console.log("ERROR:");
 				console.log(err);
 			}
-			console.log(data);
+			console.log(data.created_at + ' : ' + data.text);
 		}
 	}
 }
@@ -51,7 +58,7 @@ function processing() {
 /////////////////////////////////////////////////////////
 ////////////////      STREAM      ///////////////////////
 /////////////////////////////////////////////////////////
-
+/*
 var stream = T.stream('user');
 
 stream.on('follow', function (eventMsg){
@@ -73,7 +80,7 @@ stream.on('tweet', function (eventMsg) {
 		tweetIt(newTweet);
 	}
 });
-
+*/
 /////////////////////////////////////////////////////////
 ////////////////      TWEET       ///////////////////////
 /////////////////////////////////////////////////////////
