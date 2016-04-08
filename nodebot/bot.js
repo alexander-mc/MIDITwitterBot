@@ -10,6 +10,8 @@ var T = new Twit(config);
 
 console.log('The bot is starting..');
 
+var midiParse = require('../bachpieces.js');
+
 
 //////// write
 	// var fs = require('fs');
@@ -21,38 +23,79 @@ console.log('The bot is starting..');
 /////////////////////////////////////////////////////////
 ////////////////     TERMINAL     ///////////////////////
 /////////////////////////////////////////////////////////
+function replaceAll(str, find, replace) {
+  return str.replace(new RegExp(find, 'g'), replace);
+}
 
 var exec = require('child_process').exec;
 var fs = require('fs');
-var cmd = '/Applications/LilyPond.app/Contents/Resources/bin/lilypond -fpng -dresolution=220 -o ../music ../music.ly';
-exec(cmd, lilyPondFinished);
+
+
+			// var cmd = '/Applications/LilyPond.app/Contents/Resources/bin/lilypond -fpng -dresolution=220 -o ../music ../music.ly';
+			// exec(cmd, lilyPondFinished);
+
+
+fs.readdir('../BachMidi', function (err, data){
+	console.log(data);
+	var selection = Math.floor(Math.random()*data.length);
+	var filename = data[selection];
+	filename = replaceAll(filename, ' ', '\\ ');
+	console.log(filename);
+
+	var file = '../BachMidi/' + filename;
+
+	var cmd = 'midicsv ' + file;
+	exec(cmd, midiCSVFinished);
+
+	function midiCSVFinished(err, stdout, stderr){
+		if(stdout.length == 0){
+			// must re do. midi conversion failed
+		}
+		console.log(stdout.length);
+		fs.writeFile('../music.csv', stdout);
+
+
+		var midiFileArray = midiParse.csvToArray(stdout);
+		var lilyPondString = midiParse.parseMIDIFileArray(midiFileArray);
+		// console.log(midiParse);
+		console.log(lilyPondString);
+
+		fs.writeFile('../music.ly', lilyPondString, function (err) {
+			var cmd = '/Applications/LilyPond.app/Contents/Resources/bin/lilypond -fpng -dresolution=220 -o ../music ../music.ly';
+			exec(cmd, lilyPondFinished);
+		});
+
+	}
+});
+
 
 function lilyPondFinished(){
 	// 1819 × 2572
 	var cmd = 'convert -crop 1700x400+119+0 ../music.png ../music.png';
 	exec(cmd, croppingFinished);
 }
-
+// trim
+// gm("img.png").extent([width, height, options])
 function croppingFinished() {
-	var filename = '../music.png';
-	var params = { encoding: 'base64' }
-	var b64 = fs.readFileSync(filename, params);
-	T.post('media/upload', { media_data: b64 }, uploaded);
-	function uploaded(err, data, response){
-		var id = data.media_id_string;
-		var tweet = {
-			status: '',  // BWV 775: Invention 4 in D minor
-			media_ids: [id]
-		}
-		T.post('statuses/update', tweet, tweeted);
-		function tweeted(err, data, response){
-			if(err){
-				console.log("ERROR:");
-				console.log(err);
-			}
-			console.log(data.created_at + ' : ' + data.text);
-		}
-	}
+	// var filename = '../music.png';
+	// var params = { encoding: 'base64' }
+	// var b64 = fs.readFileSync(filename, params);
+	// T.post('media/upload', { media_data: b64 }, uploaded);
+	// function uploaded(err, data, response){
+	// 	var id = data.media_id_string;
+	// 	var tweet = {
+	// 		status: '',  // BWV 775: Invention 4 in D minor
+	// 		media_ids: [id]
+	// 	}
+	// 	T.post('statuses/update', tweet, tweeted);
+	// 	function tweeted(err, data, response){
+	// 		if(err){
+	// 			console.log("ERROR:");
+	// 			console.log(err);
+	// 		}
+	// 		console.log(data.created_at + ' : ' + data.text);
+	// 	}
+	// }
 }
 
 /////////////////////////////////////////////////////////

@@ -1,3 +1,4 @@
+
 var noteNames = [
 'c,,,,',
 'cis,,,,',
@@ -237,6 +238,7 @@ var noteNamesSharps = [
 ];
 
 
+// lodash
 
 //////////////////////////////////////////////////////
 
@@ -257,21 +259,6 @@ function ArrNoDupe(a) {
 	return r;
 }
 
-function csvToArray(allText) {
-	var allTextLines = allText.split(/\r\n|\n/);
-	var headers = allTextLines[0].split(',');
-	var lines = [];
-	for (var i=0; i<allTextLines.length; i++) {
-		var data = allTextLines[i].split(',');
-		var tarr = [];
-		for (var j=0; j<data.length; j++) {
-			tarr.push( data[j].trim() );
-		}
-		lines.push(tarr);
-	}
-	return lines;
-}
-
 function getAllNoteOnBetweenTimes(lines, beginTime, endTime){
 	var activeMIDIChannels = [];
 	for(var i = 0; i < lines.length; i++){
@@ -279,6 +266,7 @@ function getAllNoteOnBetweenTimes(lines, beginTime, endTime){
 			activeMIDIChannels.push( lines[i][0] );
 		}
 	}
+	// 
 	activeMIDIChannels = ArrNoDupe( activeMIDIChannels );
 	console.log(activeMIDIChannels);
 
@@ -291,7 +279,7 @@ function getAllNoteOnBetweenTimes(lines, beginTime, endTime){
 		if(lines[i].length >= 2){
 			if(lines[i][1] >= beginTime && lines[i][1] < endTime){
 				var noteString = lines[i][2].trim();
-				if(noteString == 'Note_on_c')
+				if(noteString == 'Note_on_c' && lines[i][5] != 0)
 					noteOnEntries[lines[i][0].trim()].push( lines[i] );
 			}
 		}
@@ -407,8 +395,8 @@ function getTempoAtTime(time){
 	return tempos[closestIndex];
 }
 
-// var measure_num = Math.floor(Math.random()*48)
-var measure_num = 5;
+var measure_num = Math.floor(Math.random()*48)
+// var measure_num = 5;
 console.log(measure_num);
 
 var MEASURE_LENGTH = 960;
@@ -425,7 +413,7 @@ var currentTempo;
 function printNoteValues(noteOnEntries){
 	var notes = [];
 
-	document.getElementById("textSection").innerHTML = '\\score {<br><br>\<\<<BR>';
+	var returnString = '\\score {\n\n\<\<\n';
 
 	var keys = Object.keys(noteOnEntries);
 	for(var v = 2; v < keys.length; v++){
@@ -434,10 +422,10 @@ function printNoteValues(noteOnEntries){
 		if(v == 3) clef = 'bass';
 		var timeSignatureString = '\\time ' + currentTimeSignature['numerator'] + '/' + currentTimeSignature['denominator'];
 
-		document.getElementById("textSection").innerHTML = document.getElementById("textSection").innerHTML + '\\new Staff {' + '<br>' + 
-		'\\clef "' + clef + '"' + '<br>' + 
-		'\\key d \\minor' + '<br>' + 
-		timeSignatureString + '<br>';
+		returnString += '\\new Staff {' + '\n' + 
+		'\\clef "' + clef + '"' + '\n' + 
+		'\\key d \\minor' + '\n' + 
+		timeSignatureString + '\n';
 
 		var voiceEntries = noteOnEntries[ keys[v] ];
 		for(var i = 0; i < voiceEntries.length; i++){
@@ -452,42 +440,19 @@ function printNoteValues(noteOnEntries){
 
 			// console.log(noteNames[ voiceEntries[i][4] ] + ' ' + length);
 
-			document.getElementById("textSection").innerHTML = document.getElementById("textSection").innerHTML + ' ' + noteNames[ voiceEntries[i][4] ] + length;
+			returnString += ' ' + noteNames[ voiceEntries[i][4] ] + length;
 
 			// notes.push(new Vex.Flow.StaveNote({keys: [ noteNames[ voiceEntries[i][4] ] ], duration: length.toString() }) );
 		}
 
-		document.getElementById("textSection").innerHTML = document.getElementById("textSection").innerHTML + '<BR>}<BR>';
+		returnString += '\n}\n';
 
 	}
 
-	document.getElementById("textSection").innerHTML = document.getElementById("textSection").innerHTML + '<BR>\>\><BR>}';
-
+	returnString += '\n\>\>\n}';
+	return returnString;
 }
 
-
-function parseMIDIFileArray(midiFileArray){
-	getAllTempos(midiFileArray);
-	getAllKeySignatures(midiFileArray);
-	getAllTimeSignatures(midiFileArray);
-
-	currentKey = getKeySignatureAtTime(trimBegin);
-	console.log('current key');
-	console.log(currentKey);
-	
-	currentTimeSignature = getTimeSignatureAtTime(trimBegin);
-	console.log('current time sig');
-	console.log(currentTimeSignature);
-
-	currentTempo = getTempoAtTime(trimBegin);
-	console.log('current tempo');
-	console.log(currentTempo);
-
-	var noteOns = getAllNoteOnBetweenTimes(midiFileArray, trimBegin, trimBegin + trimLength);
-	console.log(noteOns);
-
-	printNoteValues(noteOns);
-}
 
 function loadFile(filename){
 	var rawFile = new XMLHttpRequest();
@@ -507,4 +472,47 @@ function loadFile(filename){
 }
 
 // loadFile("invent4trim.csv");
-loadFile("invent4.csv");
+// loadFile("music.csv");
+
+module.exports = {
+
+csvToArray: function(allText) {
+	var allTextLines = allText.split(/\r\n|\n/);
+	var headers = allTextLines[0].split(',');
+	var lines = [];
+	for (var i=0; i<allTextLines.length; i++) {
+		var data = allTextLines[i].split(',');
+		var tarr = [];
+		for (var j=0; j<data.length; j++) {
+			tarr.push( data[j].trim() );
+		}
+		lines.push(tarr);
+	}
+	return lines;
+},
+
+parseMIDIFileArray: function(midiFileArray){
+	getAllTempos(midiFileArray);
+	getAllKeySignatures(midiFileArray);
+	getAllTimeSignatures(midiFileArray);
+
+	currentKey = getKeySignatureAtTime(trimBegin);
+	console.log('current key');
+	console.log(currentKey);
+	
+	currentTimeSignature = getTimeSignatureAtTime(trimBegin);
+	console.log('current time sig');
+	console.log(currentTimeSignature);
+
+	currentTempo = getTempoAtTime(trimBegin);
+	console.log('current tempo');
+	console.log(currentTempo);
+
+	var noteOns = getAllNoteOnBetweenTimes(midiFileArray, trimBegin, trimBegin + trimLength);
+	console.log(noteOns);
+
+	return printNoteValues(noteOns);
+}
+
+
+};
