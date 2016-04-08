@@ -1,5 +1,5 @@
 // this bot's twitter handle:
-var TWITTER_HANDLE = 'bachpieces';
+var TWITTER_HANDLE = 'JSebastianBot';
 
 
 var Twit = require('twit');
@@ -10,7 +10,7 @@ var T = new Twit(config);
 
 console.log('The bot is starting..');
 
-var midiParse = require('../bachpieces.js');
+var midiParse = require('../MIDICSVReader.js');
 
 
 //////// write
@@ -71,12 +71,18 @@ fs.readdir('../BachMidi', function (err, data){
 
 function lilyPondFinished(){
 	// 1819 × 2572
-	var cmd = 'convert -crop 1700x400+119+0 ../music.png ../music.png';
-	exec(cmd, croppingFinished);
+	var cmdTrim = 'convert -trim ../music.png ../music.png'
+	exec(cmdTrim, addPadding);
+	function addPadding(){
+		console.log('adding padding');
+		var cmdExtend = 'convert -background white -gravity center -extent 110%x110% ../music.png ../music.png';
+		exec(cmdExtend, croppingFinished);			
+	}
 }
 // trim
 // gm("img.png").extent([width, height, options])
 function croppingFinished() {
+	console.log('cropping finished');
 	// var filename = '../music.png';
 	// var params = { encoding: 'base64' }
 	// var b64 = fs.readFileSync(filename, params);

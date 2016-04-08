@@ -1,242 +1,33 @@
+var noteNames;
+makeNoteNames();
 
-var noteNames = [
-'c,,,,',
-'cis,,,,',
-'d,,,,',
-'ees,,,,',
-'e,,,,',
-'f,,,,',
-'fis,,,,',
-'g,,,,',
-'aes,,,,',
-'a,,,,',
-'bes,,,,',
-'b,,,,',
+function makeNoteNames(){
+	noteNames = [];
+	var chromatic = ['c', ' ', 'd', ' ', 'e', 'f', ' ', 'g', ' ', 'a', ' ', 'b'];
+	var accidentals = ['cis', 'dis', 'fis', 'gis', 'ais']; // 5 sharp
+	// var accidentals = ['cis', 'dis', 'fis', 'gis', 'bes']; // 4 sharp 1 flat
+	// var accidentals = ['cis', 'ees', 'fis', 'gis', 'bes']; // 3 sharp 2 flat
+	// var accidentals = ['cis', 'ees', 'fis', 'aes', 'bes']; // 2 sharp 3 flat
+	// var accidentals = ['des', 'ees', 'fis', 'aes', 'bes']; // 1 sharp 4 flat
+	// var accidentals = ['des', 'ees', 'ges', 'aes', 'bes']; // 5 flat
+	var octaveMarks = [',,,,', ',,,', ',,', ',', '', '\'', '\'\'', '\'\'\'', '\'\'\'\''];
 
-'c,,,',
-'cis,,,',
-'d,,,',
-'ees,,,',
-'e,,,',
-'f,,,',
-'fis,,,',
-'g,,,',
-'aes,,,',
-'a,,,',
-'bes,,,',
-'b,,,',
-
-'c,,',
-'cis,,',
-'d,,',
-'ees,,',
-'e,,',
-'f,,',
-'fis,,',
-'g,,',
-'aes,,',
-'a,,',
-'bes,,',
-'b,,',
-
-'c,',
-'cis,',
-'d,',
-'ees,',
-'e,',
-'f,',
-'fis,',
-'g,',
-'aes,',
-'a,',
-'bes,',
-'b,',
-
-'c',
-'cis',
-'d',
-'ees',
-'e',
-'f',
-'fis',
-'g',
-'aes',
-'a',
-'bes',
-'b',
-
-'c\'',
-'cis\'',
-'d\'',
-'ees\'',
-'e\'',
-'f\'',
-'fis\'',
-'g\'',
-'aes\'',
-'a\'',
-'bes\'',
-'b\'',
-
-'c\'\'',
-'cis\'\'',
-'d\'\'',
-'ees\'\'',
-'e\'\'',
-'f\'\'',
-'fis\'\'',
-'g\'\'',
-'aes\'\'',
-'a\'\'',
-'bes\'\'',
-'b\'\'',
-
-'c\'\'\'',
-'cis\'\'\'',
-'d\'\'\'',
-'ees\'\'\'',
-'e\'\'\'',
-'f\'\'\'',
-'fis\'\'\'',
-'g\'\'\'',
-'aes\'\'\'',
-'a\'\'\'',
-'bes\'\'\'',
-'b\'\'\'',
-
-'c\'\'\'\'',
-'cis\'\'\'\'',
-'d\'\'\'\'',
-'ees\'\'\'\'',
-'e\'\'\'\'',
-'f\'\'\'\'',
-'fis\'\'\'\'',
-'g\'\'\'\'',
-'aes\'\'\'\'',
-'a\'\'\'\'',
-'bes\'\'\'\'',
-'b\'\'\'\'',
-];
-
-var noteNamesSharps = [
-'c,,,,',
-'cis,,,,',
-'d,,,,',
-'dis,,,,',
-'e,,,,',
-'f,,,,',
-'fis,,,,',
-'g,,,,',
-'gis,,,,',
-'a,,,,',
-'ais,,,,',
-'b,,,,',
-
-'c,,,',
-'cis,,,',
-'d,,,',
-'dis,,,',
-'e,,,',
-'f,,,',
-'fis,,,',
-'g,,,',
-'gis,,,',
-'a,,,',
-'ais,,,',
-'b,,,',
-
-'c,,',
-'cis,,',
-'d,,',
-'dis,,',
-'e,,',
-'f,,',
-'fis,,',
-'g,,',
-'gis,,',
-'a,,',
-'ais,,',
-'b,,',
-
-'c,',
-'cis,',
-'d,',
-'dis,',
-'e,',
-'f,',
-'fis,',
-'g,',
-'gis,',
-'a,',
-'ais,',
-'b,',
-
-'c',
-'cis',
-'d',
-'dis',
-'e',
-'f',
-'fis',
-'g',
-'gis',
-'a',
-'ais',
-'b',
-
-'c\'',
-'cis\'',
-'d\'',
-'dis\'',
-'e\'',
-'f\'',
-'fis\'',
-'g\'',
-'gis\'',
-'a\'',
-'ais\'',
-'b\'',
-
-'c\'\'',
-'cis\'\'',
-'d\'\'',
-'dis\'\'',
-'e\'\'',
-'f\'\'',
-'fis\'\'',
-'g\'\'',
-'gis\'\'',
-'a\'\'',
-'ais\'\'',
-'b\'\'',
-
-'c\'\'\'',
-'cis\'\'\'',
-'d\'\'\'',
-'dis\'\'\'',
-'e\'\'\'',
-'f\'\'\'',
-'fis\'\'\'',
-'g\'\'\'',
-'gis\'\'\'',
-'a\'\'\'',
-'ais\'\'\'',
-'b\'\'\'',
-
-'c\'\'\'\'',
-'cis\'\'\'\'',
-'d\'\'\'\'',
-'dis\'\'\'\'',
-'e\'\'\'\'',
-'f\'\'\'\'',
-'fis\'\'\'\'',
-'g\'\'\'\'',
-'gis\'\'\'\'',
-'a\'\'\'\'',
-'ais\'\'\'\'',
-'b\'\'\'\'',
-];
-
+	for(var oct = 0; oct < 9; oct++){
+		var blackKey = 0;
+		for(var i = 0; i < 12; i++){
+			var note;
+			if(chromatic[i] == ' '){
+				note = accidentals[blackKey];
+				blackKey++;
+			}
+			else{
+				note = chromatic[i]
+			}
+			note = note + octaveMarks[oct];
+			noteNames.push(note);
+		}
+	}
+}
 
 // lodash
 
@@ -411,9 +202,9 @@ var currentTempo;
 
 
 function printNoteValues(noteOnEntries){
-	var notes = [];
+	var notes = []; 
 
-	var returnString = '\\score {\n\n\<\<\n';
+	var returnString = '\\header {\ntagline = ""  % removed\n}\n\n\\score {\n\n\<\<\n';
 
 	var keys = Object.keys(noteOnEntries);
 	for(var v = 2; v < keys.length; v++){
@@ -439,6 +230,9 @@ function printNoteValues(noteOnEntries){
 			length = MEASURE_LENGTH/length;
 
 			// console.log(noteNames[ voiceEntries[i][4] ] + ' ' + length);
+
+			// TODO: remove this!!
+			length = Math.floor(length);
 
 			returnString += ' ' + noteNames[ voiceEntries[i][4] ] + length;
 
@@ -509,6 +303,7 @@ parseMIDIFileArray: function(midiFileArray){
 	console.log(currentTempo);
 
 	var noteOns = getAllNoteOnBetweenTimes(midiFileArray, trimBegin, trimBegin + trimLength);
+	console.log('Note On Values');
 	console.log(noteOns);
 
 	return printNoteValues(noteOns);
