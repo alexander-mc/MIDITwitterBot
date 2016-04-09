@@ -23,6 +23,11 @@ var midiParse = require('../MIDICSVReader.js');
 /////////////////////////////////////////////////////////
 ////////////////     TERMINAL     ///////////////////////
 /////////////////////////////////////////////////////////
+function removeExtension(filename){
+    var lastDotPosition = filename.lastIndexOf(".");
+    if (lastDotPosition === -1) return filename;
+    else return filename.substr(0, lastDotPosition);
+}
 function replaceAll(str, find, replace) {
   return str.replace(new RegExp(find, 'g'), replace);
 }
@@ -31,34 +36,30 @@ var exec = require('child_process').exec;
 var fs = require('fs');
 
 
-			// var cmd = '/Applications/LilyPond.app/Contents/Resources/bin/lilypond -fpng -dresolution=220 -o ../music ../music.ly';
-			// exec(cmd, lilyPondFinished);
-
-
 fs.readdir('../BachMidi', function (err, data){
-	console.log(data);
+	// console.log(data);
+
+	// randomly select file from directory
 	var selection = Math.floor(Math.random()*data.length);
 	var filename = data[selection];
-	filename = replaceAll(filename, ' ', '\\ ');
-	console.log(filename);
 
-	var file = '../BachMidi/' + filename;
 
-	var cmd = 'midicsv ' + file;
+	// convert file to CSV (make filename terminal readable, escape spaces)
+	var cmd = 'midicsv ' + '../BachMidi/' + replaceAll(filename, ' ', '\\ ');
 	exec(cmd, midiCSVFinished);
-
 	function midiCSVFinished(err, stdout, stderr){
 		if(stdout.length == 0){
 			// must re do. midi conversion failed
 		}
-		console.log(stdout.length);
-		fs.writeFile('../music.csv', stdout);
-
-
+		// write CSV conversion to file
+		// fs.writeFile('../music.csv', stdout);
+		// convert CSV file to javascript nested arrays
 		var midiFileArray = midiParse.csvToArray(stdout);
+		// parse MIDI CSV file
 		var lilyPondString = midiParse.parseMIDIFileArray(midiFileArray);
 		// console.log(midiParse);
-		console.log(lilyPondString);
+		console.log( removeExtension(filename) );
+		// console.log(lilyPondString);
 
 		fs.writeFile('../music.ly', lilyPondString, function (err) {
 			var cmd = '/Applications/LilyPond.app/Contents/Resources/bin/lilypond -fpng -dresolution=220 -o ../music ../music.ly';
@@ -70,7 +71,6 @@ fs.readdir('../BachMidi', function (err, data){
 
 
 function lilyPondFinished(){
-	// 1819 × 2572
 	var cmdTrim = 'convert -trim ../music.png ../music.png'
 	exec(cmdTrim, addPadding);
 	function addPadding(){

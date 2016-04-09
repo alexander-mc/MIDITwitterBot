@@ -188,7 +188,6 @@ function getTempoAtTime(time){
 
 var measure_num = Math.floor(Math.random()*48)
 // var measure_num = 5;
-console.log(measure_num);
 
 var MEASURE_LENGTH = 960;
 // var trimBegin = 14400;
@@ -199,7 +198,19 @@ var currentKey;
 var currentTimeSignature;
 var currentTempo;
 
-
+function stringForCurrentKey(){
+	// indices are -7 to +7, relating to number of flats / sharps
+	var majorKeyArray = ['ces', 'ges', 'des', 'aes', 'ees', 'bes', 'f', 'c', 'g', 'd', 'a', 'e', 'b', 'fis', 'cis'];
+	var minorKeyArray = ['aes', 'ees', 'bes', 'f', 'c', 'g', 'd', 'a', 'e', 'b', 'fis', 'cis', 'gis', 'dis', 'ais'];
+	var majorminor = currentKey['majorminor'];
+	var keyIndex = currentKey['key'];
+	var keyString;
+	if(majorminor == 'major')
+		keyString = majorKeyArray[keyIndex+7];
+	else
+		keyString = minorKeyArray[keyIndex+7];
+	return '\\key ' + keyString + ' \\' + majorminor;
+}
 
 function printNoteValues(noteOnEntries){
 	var notes = []; 
@@ -213,9 +224,11 @@ function printNoteValues(noteOnEntries){
 		if(v == 3) clef = 'bass';
 		var timeSignatureString = '\\time ' + currentTimeSignature['numerator'] + '/' + currentTimeSignature['denominator'];
 
+		var keyString = stringForCurrentKey();
+
 		returnString += '\\new Staff {' + '\n' + 
 		'\\clef "' + clef + '"' + '\n' + 
-		'\\key d \\minor' + '\n' + 
+		stringForCurrentKey() + '\n' + 
 		timeSignatureString + '\n';
 
 		var voiceEntries = noteOnEntries[ keys[v] ];
@@ -264,9 +277,6 @@ function loadFile(filename){
 	}
 	rawFile.send();
 }
-
-// loadFile("invent4trim.csv");
-// loadFile("music.csv");
 
 module.exports = {
 
