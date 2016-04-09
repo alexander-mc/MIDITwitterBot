@@ -33,50 +33,13 @@ function makeNoteNames(){
 
 //////////////////////////////////////////////////////
 
-var STANDARD_KEY_SIGNATURE = {'time': 0, 'key': 0, 'majorminor': 'major'};
-var STANDARD_TIME_SIGNATURE =  {'time' :  0, 'numerator' : 4, 'denominator' : 4}
-var STANDARD_TEMPO =  {'time' :  0, 'tempo' : 0} ;
+var DEFAULT_KEY_SIGNATURE = {'time': 0, 'key': 0, 'majorminor': 'major'};
+var DEFAULT_TIME_SIGNATURE =  {'time' :  0, 'numerator' : 4, 'denominator' : 4}
+// TODO: need a default tempo
+var DEFAULT_TEMPO =  {'time' :  0, 'tempo' : 0} ;
 var tempos = [];
 var keySignatures = [];
 var timeSignatures = [];
-
-function ArrNoDupe(a) {
-	var temp = {};
-	for (var i = 0; i < a.length; i++)
-		temp[a[i]] = true;
-	var r = [];
-	for (var k in temp)
-		r.push(k);
-	return r;
-}
-
-function getAllNoteOnBetweenTimes(lines, beginTime, endTime){
-	var activeMIDIChannels = [];
-	for(var i = 0; i < lines.length; i++){
-		if(lines[i].length >= 6){
-			activeMIDIChannels.push( lines[i][0] );
-		}
-	}
-	// 
-	activeMIDIChannels = ArrNoDupe( activeMIDIChannels );
-	console.log(activeMIDIChannels);
-
-	var noteOnEntries = {};
-	for(var i = 0; i < activeMIDIChannels.length; i++){
-		var voiceIDString = activeMIDIChannels[i];
-		noteOnEntries[voiceIDString] = [];
-	}
-	for(var i = 0; i < lines.length; i++){
-		if(lines[i].length >= 2){
-			if(lines[i][1] >= beginTime && lines[i][1] < endTime){
-				var noteString = lines[i][2].trim();
-				if(noteString == 'Note_on_c' && lines[i][5] != 0)
-					noteOnEntries[lines[i][0].trim()].push( lines[i] );
-			}
-		}
-	}
-	return noteOnEntries;
-}
 
 function getAllTempos(midiFileArray){
 	tempos = [];
@@ -125,7 +88,7 @@ function getAllKeySignatures(midiFileArray){
 function getKeySignatureAtTime(time){
 	// make something up
 	if(keySignatures.length < 1)
-		return STANDARD_KEY_SIGNATURE;
+		return DEFAULT_KEY_SIGNATURE;
 	// easy, only one exists
 	if(keySignatures.length == 1)
 		return keySignatures[0];
@@ -147,7 +110,7 @@ function getKeySignatureAtTime(time){
 function getTimeSignatureAtTime(time){
 	// make something up
 	if(timeSignatures.length < 1)
-		return STANDARD_TIME_SIGNATURE;
+		return DEFAULT_TIME_SIGNATURE;
 	// easy, only one exists
 	if(timeSignatures.length == 1)
 		return timeSignatures[0];
@@ -168,7 +131,7 @@ function getTimeSignatureAtTime(time){
 function getTempoAtTime(time){
 	// make something up
 	if(tempos.length < 1)
-		return STANDARD_TEMPO;
+		return DEFAULT_TEMPO;
 	// easy, only one exists
 	if(tempos.length == 1)
 		return tempos[0];
@@ -212,16 +175,122 @@ function stringForCurrentKey(){
 	return '\\key ' + keyString + ' \\' + majorminor;
 }
 
-function printNoteValues(noteOnEntries){
+function ArrNoDupe(a) {
+	var temp = {};
+	for (var i = 0; i < a.length; i++)
+		temp[a[i]] = true;
+	var r = [];
+	for (var k in temp)
+		r.push(k);
+	return r;
+}
+
+function isInt(n)   { return Number(n) === n && n % 1 === 0;  }
+function isFloat(n) { return Number(n) === n && n % 1 !== 0;  }
+
+function voiceEventsBetweenTimes(lines, beginTime, endTime){
+	var allPitches = new Array(128);
+	// setup an empty array of arrays
+	var allChannels = new Array(16);
+	// keep track of (channel-independent) last event, in case of spaces to put in a rest
+	var lastEndingRecorded = new Array(16);
+	for(var i = 0; i < 16; i++){
+		allChannels[i] = [];
+		lastEndingRecorded[i] = beginTime;
+	}
+
+	for(var i = 0; i < lines.length; i++){
+		if(lines[i].length){
+			var channel = Number( lines[i][0].trim() );
+			if(lines[i].length >= 2 && lines[i][1] >= beginTime && lines[i][1] < endTime){
+				var eventType = lines[i][2].trim();
+				// if event is note on (and velocity is not 0, because that is also signal for note off)
+				if(eventType == 'Note_on_c' && lines[i][5] != 0){
+					// new note!
+					// double check times, in case we need to add a rest inbetween the last note
+					if(lastEndingRecorded[channel] != lines[i][1]){
+						// a rest happened inbetween. add a rest.
+						allChannels[channel].push( {'pitch': -1, 
+						                             'time': lastEndingRecorded[channel] - beginTime, 
+						                         'duration': MEASURE_LENGTH / (lines[i][1] - lastEndingRecorded[channel]) } );
+					}
+					// store the time of the start of the note
+					allPitches[ lines[i][4] ] = lines[i][1];
+				}
+				else if( (eventType == 'Note_off_c') || (eventType == 'Note_on_c' && lines[i][5] == 0) ) {
+					var time;
+					if( allPitches[ lines[i][4] ] ){
+						time = allPitches[ lines[i][4] ];
+						var duration = lines[i][1] - time;
+						// convert to 4=quarter, 2=half, 8=eighth
+						if( isFloat(MEASURE_LENGTH / duration) ){
+							console.log('unresolved note duration');
+							console.log(duration);
+							// if( isInt(MEASURE_LENGTH / duration * 3 / 4) ){
+								duration = Math.floor(MEASURE_LENGTH / duration * 3 / 4) + '.';
+								console.log(duration);
+							// }
+						}
+						else{
+							duration = MEASURE_LENGTH / duration;
+						}
+
+						// console.log(lines[i][1] + ' ' + time);
+						lastEndingRecorded[channel] = lines[i][1];
+						allChannels[channel].push( {'pitch': Number(lines[i][4]), 
+						                             'time': time - beginTime, 
+						                         'duration': duration } );
+
+						allPitches[ lines[i][4] ] = undefined;
+					}
+					else{  // must have started the selection with a hanging note, receiving note off without note on
+						// figure out something to do later
+						time = beginTime;
+					}
+				}
+			}
+		}
+	}
+	return allChannels;
+}
+
+function getAllNoteOnBetweenTimes(lines, beginTime, endTime){
+	var activeMIDIChannels = [];
+	for(var i = 0; i < lines.length; i++){
+		if(lines[i].length >= 6){
+			activeMIDIChannels.push( lines[i][0] );
+		}
+	}
+	// 
+	activeMIDIChannels = ArrNoDupe( activeMIDIChannels );
+	console.log(activeMIDIChannels);
+
+	var noteOnEntries = {};
+	for(var i = 0; i < activeMIDIChannels.length; i++){
+		var voiceIDString = activeMIDIChannels[i];
+		noteOnEntries[voiceIDString] = [];
+	}
+	for(var i = 0; i < lines.length; i++){
+		if(lines[i].length >= 2){
+			if(lines[i][1] >= beginTime && lines[i][1] < endTime){
+				var noteString = lines[i][2].trim();
+				if(noteString == 'Note_on_c' && lines[i][5] != 0)
+					noteOnEntries[lines[i][0].trim()].push( lines[i] );
+			}
+		}
+	}
+	return noteOnEntries;
+}
+
+function printNoteValues(noteEvents){
 	var notes = []; 
 
 	var returnString = '\\header {\ntagline = ""  % removed\n}\n\n\\score {\n\n\<\<\n';
 
-	var keys = Object.keys(noteOnEntries);
-	for(var v = 2; v < keys.length; v++){
+	for(var channel = 0; channel < noteEvents.length; channel++){
 
 		var clef = 'treble';
-		if(v == 3) clef = 'bass';
+		if(channel == 3) clef = 'bass';
 		var timeSignatureString = '\\time ' + currentTimeSignature['numerator'] + '/' + currentTimeSignature['denominator'];
 
 		var keyString = stringForCurrentKey();
@@ -231,32 +300,29 @@ function printNoteValues(noteOnEntries){
 		stringForCurrentKey() + '\n' + 
 		timeSignatureString + '\n';
 
-		var voiceEntries = noteOnEntries[ keys[v] ];
+		var voiceEntries = noteEvents[ channel ];
+		console.log(voiceEntries);
 		for(var i = 0; i < voiceEntries.length; i++){
-			var length = MEASURE_LENGTH;
-			if(i < voiceEntries.length - 1)
-				length = (voiceEntries[i+1][1] - trimBegin) - (voiceEntries[i][1] - trimBegin);
+
+			var pitch = voiceEntries[i]['pitch'];
+			// var time = voiceEntries[i]['time'];
+			var duration = voiceEntries[i]['duration'];
+
+			var pitchString;
+			if(pitch == -1)
+				pitchString = 'r';
 			else
-				length = (trimLength) - (voiceEntries[i][1] - trimBegin);
-
-			console.log(MEASURE_LENGTH + ' '  + length);
-			length = MEASURE_LENGTH/length;
-
-			// console.log(noteNames[ voiceEntries[i][4] ] + ' ' + length);
-
-			// TODO: remove this!!
-			length = Math.floor(length);
-
-			returnString += ' ' + noteNames[ voiceEntries[i][4] ] + length;
-
-			// notes.push(new Vex.Flow.StaveNote({keys: [ noteNames[ voiceEntries[i][4] ] ], duration: length.toString() }) );
+				pitchString = noteNames[ pitch ];
+			if(isFloat(duration)){
+				// make dotted note
+			}
+			// console.log(MEASURE_LENGTH + ' '  + duration);
+			returnString += ' ' + pitchString + duration;
 		}
-
 		returnString += '\n}\n';
-
 	}
-
 	returnString += '\n\>\>\n}';
+	console.log(returnString);
 	return returnString;
 }
 
@@ -312,11 +378,13 @@ parseMIDIFileArray: function(midiFileArray){
 	console.log('current tempo');
 	console.log(currentTempo);
 
-	var noteOns = getAllNoteOnBetweenTimes(midiFileArray, trimBegin, trimBegin + trimLength);
-	console.log('Note On Values');
-	console.log(noteOns);
-
-	return printNoteValues(noteOns);
+	var channels = voiceEventsBetweenTimes(midiFileArray, trimBegin, trimBegin + trimLength);
+	var activeChannels = [];
+	for(var i = 0; i < 16; i++){
+		if(channels[i].length)
+			activeChannels.push(channels[i]);
+	}	
+	return printNoteValues( activeChannels );
 }
 
 

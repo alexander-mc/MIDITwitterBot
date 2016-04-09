@@ -70,7 +70,11 @@ fs.readdir('../BachMidi', function (err, data){
 });
 
 
-function lilyPondFinished(){
+function lilyPondFinished(err, stdout, stderr){
+	if(err)
+		console.log(err);
+	// verbose mode
+	// console.log(stderr);
 	var cmdTrim = 'convert -trim ../music.png ../music.png'
 	exec(cmdTrim, addPadding);
 	function addPadding(){
