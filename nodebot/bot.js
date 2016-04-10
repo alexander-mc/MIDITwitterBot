@@ -71,8 +71,8 @@ fs.readdir('../BachMidi', function (err, data){
 
 
 function lilyPondFinished(err, stdout, stderr){
-	if(err)
-		console.log(err);
+	// if(err)
+		// console.log(err);
 	// verbose mode
 	// console.log(stderr);
 	var cmdTrim = 'convert -trim ../music.png ../music.png'
