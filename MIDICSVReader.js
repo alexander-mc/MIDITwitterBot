@@ -77,29 +77,11 @@ function makeNoteNames(){
 
 var DEFAULT_KEY_SIGNATURE = {'time': 0, 'key': 0, 'majorminor': 'major'};
 var DEFAULT_TIME_SIGNATURE =  {'time' :  0, 'numerator' : 4, 'denominator' : 4}
-// TODO: need a default tempo
-var DEFAULT_TEMPO =  {'time' :  0, 'tempo' : 0} ;
-
-var tempos = [];
-var keySignatures = [];
-var timeSignatures = [];
-
-function getAllTempos(midiCSVArray){
-	tempos = [];
-	for(var i = 0; i < midiCSVArray.length; i++){
-		if(midiCSVArray[i].length >= 2){
-			if(midiCSVArray[i][2] == 'Tempo'){
-				var time = Number(midiCSVArray[i][1]);
-				var tempo = Number(midiCSVArray[i][3]);
-				tempos.push( {'time' :  time, 'tempo' : tempo} );
-			}
-		}
-	}
-}
+var DEFAULT_TEMPO =  {'time' :  0, 'tempo' : 0};  // TODO: need a default tempo
 
 
 function getAllTimeSignatures(midiCSVArray){
-	timeSignatures = [];
+	var timeSignatures = [];
 	for(var i = 0; i < midiCSVArray.length; i++){
 		if(midiCSVArray[i].length >= 2){
 			if(midiCSVArray[i][2] == 'Time_signature'){
@@ -112,10 +94,33 @@ function getAllTimeSignatures(midiCSVArray){
 			}
 		}
 	}
+	return timeSignatures;
+}
+
+function getTimeSignatureAtTime(midiCSVArray, time){
+	var timeSignatures = getAllTimeSignatures(midiCSVArray);
+	// make something up
+	if(timeSignatures.length < 1)
+		return DEFAULT_TIME_SIGNATURE;
+	// easy, only one exists
+	if(timeSignatures.length == 1)
+		return timeSignatures[0];
+	// find closest one
+	var closestIndex = 0;
+	for(var i = 1; i < timeSignatures.length; i++){
+		if(time >= timeSignatures[i]['time']){
+			var difference1 = time - timeSignatures[closestIndex]['time'];
+			var difference2 = time - timeSignatures[i]['time'];
+			if(difference2 <= difference1){
+				closestIndex = i;
+			}
+		}
+	}
+	return timeSignatures[closestIndex];
 }
 
 function getAllKeySignatures(midiCSVArray){
-	keySignatures = [];
+	var keySignatures = [];
 	for(var i = 0; i < midiCSVArray.length; i++){
 		if(midiCSVArray[i].length >= 2){
 			if(midiCSVArray[i][2] == 'Key_signature'){
@@ -126,9 +131,12 @@ function getAllKeySignatures(midiCSVArray){
 			}
 		}
 	}
+	return keySignatures;
 }
 
-function getKeySignatureAtTime(time){
+function getKeySignatureAtTime(midiCSVArray, time){
+	var keySignatures = getAllKeySignatures(midiCSVArray);
+
 	// make something up
 	if(keySignatures.length < 1)
 		return DEFAULT_KEY_SIGNATURE;
@@ -149,29 +157,22 @@ function getKeySignatureAtTime(time){
 	return keySignatures[closestIndex];
 }
 
-
-function getTimeSignatureAtTime(time){
-	// make something up
-	if(timeSignatures.length < 1)
-		return DEFAULT_TIME_SIGNATURE;
-	// easy, only one exists
-	if(timeSignatures.length == 1)
-		return timeSignatures[0];
-	// find closest one
-	var closestIndex = 0;
-	for(var i = 1; i < timeSignatures.length; i++){
-		if(time > timeSignatures[i]['time']){
-			var difference1 = time - timeSignatures[closestIndex]['time'];
-			var difference2 = time - timeSignatures[i]['time'];
-			if(difference2 < difference1){
-				closestIndex = i;
+function getAllTempos(midiCSVArray){
+	var tempos = [];
+	for(var i = 0; i < midiCSVArray.length; i++){
+		if(midiCSVArray[i].length >= 2){
+			if(midiCSVArray[i][2] == 'Tempo'){
+				var time = Number(midiCSVArray[i][1]);
+				var tempo = Number(midiCSVArray[i][3]);
+				tempos.push( {'time' :  time, 'tempo' : tempo} );
 			}
 		}
 	}
-	return timeSignatures[closestIndex];
+	return tempos;
 }
 
-function getTempoAtTime(time){
+function getTempoAtTime(midiCSVArray, time){
+	var tempos = getAllTempos(midiCSVArray);
 	// make something up
 	if(tempos.length < 1)
 		return DEFAULT_TEMPO;
@@ -192,16 +193,12 @@ function getTempoAtTime(time){
 	return tempos[closestIndex];
 }
 
-var measure_num = Math.floor(Math.random()*48)
-// var measure_num = 5;
+var trimBeginMeasure;
 
-var MEASURE_LENGTH = 960;
-// var trimBegin = 14400;
-var trimBegin = 360 * measure_num;
-var trimLength = 360 * 4;
+var MEASURE_LENGTH;
+
 var quartersPerMeasure;
 var clocksPerQuarterNote;  // neighborhood of half-a-hundred to a few hundred
-var clocksPerWholeNote;
 
 var currentKey;
 var currentTimeSignature;
@@ -236,26 +233,23 @@ function isFloat(n) { return Number(n) === n && n % 1 !== 0;  }
 
 
 function lilypondFormattedNote(midiPitch, durationClocks){
+	var PADDING = 10;
 	// midiPitch: -1 code for 'rest'
-
 	var pitchString;
 	if(midiPitch == -1)
 		pitchString = 'r';
 	else
 		pitchString = noteNames[midiPitch];
-
 	// 0: whole, 1:half, 2:quarter, 3:eighth ...
 	var noteLengths = new Array(10);
 	for(var i = 0; i < 10; i++){
 		noteLengths[i] = (clocksPerQuarterNote*4) / Math.pow(2,i);
 	}
-
 	var noteString = '';
-
 	var duration = durationClocks;
 	var noteTest = 0;
-	while(duration > 5 && noteTest < 10){
-		if(noteLengths[noteTest] <= duration){
+	while(duration > PADDING && noteTest < 10){
+		if(noteLengths[noteTest] <= duration + PADDING){
 			noteString += ' ' + pitchString + Math.pow(2, noteTest);
 			duration -= noteLengths[noteTest];
 			if(duration > 5){
@@ -264,19 +258,7 @@ function lilypondFormattedNote(midiPitch, durationClocks){
 		}
 		noteTest++;
 	}
-	// console.log('++++++++++++ ' + durationClocks + ' ' + clocksPerQuarterNote);
-	// console.log(durationClocks + ' (' + noteTest + ') ' + noteString);
-
 	return noteString;
-
-	// var dots = '';
-	// if(!isInt(durationClocks)){
-	// 	durationClocks = clocksPerQuarterNote / (lines[i][1] - time) * 4;
-	// 	while(!isInt(durationClocks) && dots.length < 5){
-	// 		durationClocks -= 
-	// 		dots = dots + '.';
-	// 	}
-	// }
 }
 
 function voiceEventsBetweenTimes(lines, beginTime, endTime){
@@ -327,51 +309,21 @@ function voiceEventsBetweenTimes(lines, beginTime, endTime){
 	return allChannels;
 }
 
-function getAllNoteOnBetweenTimes(lines, beginTime, endTime){
-	var activeMIDIChannels = [];
-	for(var i = 0; i < lines.length; i++){
-		if(lines[i].length >= 6){
-			activeMIDIChannels.push( lines[i][0] );
-		}
-	}
-
-	activeMIDIChannels = ArrNoDupe( activeMIDIChannels );
-	console.log(activeMIDIChannels);
-
-	var noteOnEntries = {};
-	for(var i = 0; i < activeMIDIChannels.length; i++){
-		var voiceIDString = activeMIDIChannels[i];
-		noteOnEntries[voiceIDString] = [];
-	}
-	for(var i = 0; i < lines.length; i++){
-		if(lines[i].length >= 2){
-			if(lines[i][1] >= beginTime && lines[i][1] < endTime){
-				var noteString = lines[i][2].trim();
-				if(noteString == 'Note_on_c' && lines[i][5] != 0)
-					noteOnEntries[lines[i][0].trim()].push( lines[i] );
-			}
-		}
-	}
-	return noteOnEntries;
-}
-
 function printNoteValues(noteEvents){
 	var notes = []; 
 
 	var returnString = '\\header {\ntagline = ""  % removed\n}\n\n\\score {\n\n\<\<\n';
 
-
 	for(var channel = 0; channel < noteEvents.length; channel++){
-
 		var clef = 'treble';
 		if(channel == 1) clef = 'bass';
 		var timeSignatureString = '\\time ' + currentTimeSignature['numerator'] + '/' + currentTimeSignature['denominator'];
-
 		var keyString = stringForCurrentKey();
 
 		returnString += '\\new Staff {' + '\n' + 
-		'\\set Score.currentBarNumber = #' + measure_num + '\n' +
-		// '\\set Score.barNumberVisibility = #all-bar-numbers-visible' + '\n' + 
+		'\\set Score.currentBarNumber = #' + (trimBeginMeasure+1) + '\n' +
+		'\\set Score.barNumberVisibility = #all-bar-numbers-visible' + '\n' +
+		'\\bar ""' + '\n' +  
 		'\\clef "' + clef + '"' + '\n' + 
 		stringForCurrentKey() + '\n' + 
 		timeSignatureString + '\n';
@@ -406,59 +358,56 @@ csvToArray: function(allText) {
 },
 
 parseMIDIFileArray: function(midiCSVArray){
+	// read header
 	var i = 0;
+	clocksPerQuarterNote = undefined;
 	while(i < midiCSVArray.length && clocksPerQuarterNote == undefined){
 		if(midiCSVArray[i].length && midiCSVArray[i][2] == 'Header'){
 			clocksPerQuarterNote = midiCSVArray[i][5];	
 		}
 		i++;
 	}
-	clocksPerWholeNote = clocksPerQuarterNote * 4;
-	quartersPerMeasure = currentTimeSignature['numerator'] * (4 / currentTimeSignature['denominator'])
 
-
+	initialTimeSignature = getTimeSignatureAtTime(midiCSVArray, 0);
+	quartersPerMeasure = initialTimeSignature['numerator'] * (4 / initialTimeSignature['denominator'])
 	MEASURE_LENGTH = quartersPerMeasure * clocksPerQuarterNote;
 
-	console.log('new data:');
-	console.log(quartersPerMeasure);
-	console.log(MEASURE_LENGTH);
-	console.log(trimBegin);
-	console.log(trimLength);
-	console.log(measure_num);
+	// approximate song length
+	// TODO: this only works if there is only one time signature
+	var lastEventTime = 0;
+	for(var i = 0; i < midiCSVArray.length; i++){
+		if(midiCSVArray[i].length && midiCSVArray[i][1] > lastEventTime)
+			lastEventTime = midiCSVArray[i][1];
+	}
+	var total_num_measures = lastEventTime / MEASURE_LENGTH;
 
-// get data
-	getAllTempos(midiCSVArray);
-	getAllKeySignatures(midiCSVArray);
-	getAllTimeSignatures(midiCSVArray);
+	var trimLengthMeasures = 4;	
+	trimBeginMeasure = Math.floor( Math.random()*(total_num_measures-trimLengthMeasures) );
+	var trimBeginClocks = MEASURE_LENGTH * trimBeginMeasure;
+	var trimLengthClocks = MEASURE_LENGTH * trimLengthMeasures;
 
-	currentKey = getKeySignatureAtTime(trimBegin);
-	console.log('current key');
-	console.log(currentKey);
-	
-	currentTimeSignature = getTimeSignatureAtTime(trimBegin);
-	console.log('current time sig');
-	console.log(currentTimeSignature);
+	currentKey = getKeySignatureAtTime(midiCSVArray, trimBeginClocks);
+	currentTimeSignature = getTimeSignatureAtTime(midiCSVArray, trimBeginClocks);
+	currentTempo = getTempoAtTime(midiCSVArray, trimBeginClocks);
 
-	currentTempo = getTempoAtTime(trimBegin);
-	console.log('current tempo');
-	console.log(currentTempo);
-
-
-// setup your snapshot
-	measure_num = Math.floor(Math.random()*18);
-	trimBegin = MEASURE_LENGTH * measure_num;
-	trimLength = MEASURE_LENGTH * 4;
+	console.log('+++++++++++++++++    NEW FILE    ++++++++++++++++++++');
+	console.log('clocks per measure: ' + clocksPerQuarterNote * quartersPerMeasure);
+	console.log('TOTAL: ' + total_num_measures + ' measures,  ' + lastEventTime + ' clocks');
+	console.log('quarter notes per measure: ' + quartersPerMeasure + '   measure clocks: ' + MEASURE_LENGTH);
+	console.log('-----------------    EXCERPT     --------------------');
+	console.log('measure: ' + trimBeginMeasure + ' (' + trimBeginClocks + ') - ' + (trimBeginMeasure+trimLengthMeasures) + ' (' + trimLengthMeasures + ')');
+	console.log('current key');  console.log(currentKey);
+	console.log('current time sig');  console.log(currentTimeSignature);
+	console.log('current tempo');  console.log(currentTempo);
 
 
-
-
-	var channels = voiceEventsBetweenTimes(midiCSVArray, trimBegin, trimBegin + trimLength);
+	var channels = voiceEventsBetweenTimes(midiCSVArray, trimBeginClocks, trimBeginClocks + trimLengthClocks);
 	var activeChannels = [];
 	for(var i = 0; i < 16; i++){
 		if(channels[i].length)
 			activeChannels.push( channels[i] );
-	}	
-	console.log(activeChannels);
+	}
+	// console.log(activeChannels);
 	return printNoteValues( activeChannels );
 }
 

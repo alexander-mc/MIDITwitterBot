@@ -43,29 +43,29 @@ fs.readdir('../BachMidi', function (err, data){
 	var selection = Math.floor(Math.random()*data.length);
 	var filename = data[selection];
 
-
 	// convert file to CSV (make filename terminal readable, escape spaces)
 	var cmd = 'midicsv ' + '../BachMidi/' + replaceAll(filename, ' ', '\\ ');
 	exec(cmd, midiCSVFinished);
 	function midiCSVFinished(err, stdout, stderr){
+		console.log( 'Loading file: ' + removeExtension(filename) );
 		if(stdout.length == 0){
+			console.log('ERROR- MIDI conversion is empty');
+			console.log(err);
 			// must re do. midi conversion failed
 		}
 		// write CSV conversion to file
-		// fs.writeFile('../music.csv', stdout);
+		fs.writeFile('../music.csv', stdout);
 		// convert CSV file to javascript nested arrays
 		var midiFileArray = midiParse.csvToArray(stdout);
 		// parse MIDI CSV file
 		var lilyPondString = midiParse.parseMIDIFileArray(midiFileArray);
 		// console.log(midiParse);
-		console.log( removeExtension(filename) );
 		// console.log(lilyPondString);
 
 		fs.writeFile('../music.ly', lilyPondString, function (err) {
 			var cmd = '/Applications/LilyPond.app/Contents/Resources/bin/lilypond -fpng -dresolution=220 -o ../music ../music.ly';
 			exec(cmd, lilyPondFinished);
 		});
-
 	}
 });
 
