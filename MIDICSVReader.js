@@ -201,6 +201,8 @@ function getTempoAtTime(midiCSVArray, time){
 	return tempos[closestIndex];
 }
 
+var PADDING = 10;
+
 var trimBeginMeasure;
 
 var MEASURE_LENGTH;
@@ -241,7 +243,6 @@ function isFloat(n) { return Number(n) === n && n % 1 !== 0;  }
 
 
 function lilypondFormattedNote(midiPitch, durationClocks){
-	var PADDING = 10;
 	// midiPitch: -1 code for 'rest'
 	var pitchString;
 	if(midiPitch == -1)
@@ -266,9 +267,224 @@ function lilypondFormattedNote(midiPitch, durationClocks){
 		}
 		noteTest++;
 	}
-	return noteString;
+	if(noteString == ''){
+		console.log('weird empty note');
+		console.log(midiPitch, durationClocks);
+	}
+	return noteString.trim();
 }
 
+function voiceEventsBetweenMeasures(lines, beginMeasure, endMeasure){
+	var trimBeginClocks = MEASURE_LENGTH * beginMeasure;
+	var trimLengthClocks = MEASURE_LENGTH * endMeasure;
+
+	var allPitches = new Array(16); // array of arrays- 16:channels, 128:voices on each channel
+	// setup an empty array of arrays
+	var allChannels = new Array(16);
+	// keep track of (channel-independent) last event, in case of gaps in time, requires a rest
+	var lastEndingRecorded = new Array(16);
+	for(var i = 0; i < 16; i++){
+		allPitches[i] = new Array(128);
+		allChannels[i] = [];
+		lastEndingRecorded[i] = trimBeginClocks;
+	}
+
+	for(var m = beginMeasure; m < endMeasure; m++){
+		// get clock timestamp boundaries of the current measure
+		var measureClockBegin = m * MEASURE_LENGTH;
+		var measureClockEnd = (m+1) * MEASURE_LENGTH;
+		// extract all note events for this measure
+		for(var i = 0; i < lines.length; i++){
+			if(lines[i].length > 5){
+				// find events only inside of current measure
+				var eventTime = Number( lines[i][1].trim() );
+				if(eventTime >= measureClockBegin && eventTime < measureClockEnd){
+					var channel = Number( lines[i][0].trim() );
+					var eventType = lines[i][2].trim();
+					var pitch = Number( lines[i][4].trim() );
+					// if event is note on (and velocity is not 0, because that is also signal for note off)
+					if(eventType == 'Note_on_c' && lines[i][5] != 0){
+						// new note!  store the time of the start of the note
+						var hangingNoteStart = undefined;
+						var hangingNotePitch = undefined;
+						for(var p = 0; p < 128; p++){
+							if(allPitches[channel][p] != undefined){
+								hangingNotePitch = p;
+								hangingNoteStart = allPitches[channel][p];
+							}
+						}
+						if(hangingNoteStart == undefined){
+							console.log('rest');
+							// rest
+							var duration = eventTime - measureClockBegin;  // in midi clicks
+							// convert to 4=quarter, 2=half, 8=eighth
+							if(duration > PADDING)
+								allChannels[channel].push( lilypondFormattedNote(-1, duration) );
+							// clear noteOn from bank
+							allPitches[ channel ][ hangingNotePitch ] = undefined;
+							// keep track of note end, in case we need to add rest before next note
+							lastEndingRecorded[channel] = eventTime;
+						}
+						else{
+							// note
+							var duration = eventTime - hangingNoteStart;  // in midi clicks
+							console.log('note ' + pitch + ' ' + duration);
+							// convert to 4=quarter, 2=half, 8=eighth
+							if(duration > PADDING)
+								allChannels[channel].push( lilypondFormattedNote(hangingNotePitch, duration) );
+							// clear noteOn from bank
+							allPitches[ channel ][ hangingNotePitch ] = undefined;
+							// keep track of note end, in case we need to add rest before next note
+							lastEndingRecorded[channel] = eventTime;
+						}
+						allPitches[ channel ][ pitch ] = eventTime;
+						console.log('setting pitch ' + pitch + ' on channel ' + channel);
+					}
+					// else if( (eventType == 'Note_off_c') || (eventType == 'Note_on_c' && lines[i][5] == 0) ) {
+					// 	if( allPitches[ channel ][ pitch ] != undefined ){
+					// 		var time = allPitches[ channel ][ pitch ];
+					// 		if( allPitches[ channel ][ pitch ] ){
+					// 			var time = lastEndingRecorded[channel]; //allPitches[ channel ][ pitch ];
+					// 			var duration = lines[i][1] - time;  // in midi clicks
+					// 			// convert to 4=quarter, 2=half, 8=eighth
+					// 			allChannels[channel].push( lilypondFormattedNote(pitch, duration) );
+					// 			// clear noteOn from bank
+					// 			allPitches[ channel ][ pitch ] = undefined;
+					// 			// keep track of note end, in case we need to add rest before next note
+					// 			lastEndingRecorded[channel] = lines[i][1];
+					// 		}
+					// 	}
+					// 	else{
+					// 		var time = measureClockBegin;
+					// 		var duration = lines[i][1] - time;  // in midi clicks
+					// 		// convert to 4=quarter, 2=half, 8=eighth
+					// 		if(duration != 0){
+					// 			// if duration is zero, it's a note off without a note on. with no duration
+					// 			allChannels[channel].push( lilypondFormattedNote( pitch, duration) );
+					// 		}
+					// 		// keep track of note end, in case we need to add rest before next note
+					// 		lastEndingRecorded[channel] = lines[i][1];
+					// 	}
+					// }
+				}
+			}
+		}
+		// close up shop, we're done with this measure
+		// for(var c = 0; c < allPitches.length; c++){
+		// 	for(var i = 0; i < allPitches[c].length; i++){
+		// 		// if note exists
+		// 		if( allPitches[ c ][ i ] != undefined ){
+		// 			var time = allPitches[ c ][ i ];
+		// 			// var duration = lines[i][1] - time;  // in midi clicks
+		// 			var duration = measureClockEnd - time;  // in midi clicks
+		// 			console.log('hanging note: ' + lilypondFormattedNote( i, duration) + ' channel:' + c + '  duration:' + duration );
+		// 			// convert to 4=quarter, 2=half, 8=eighth
+		// 			allChannels[ c ].push( lilypondFormattedNote( i, duration) );
+		// 			// clear noteOn from bank
+		// 			allPitches[ c ][ i ] = undefined;
+		// 			// keep track of note end, in case we need to add rest before next note
+		// 			// lastEndingRecorded[channel] = lines[i][1];
+		// 			lastEndingRecorded[ c ] = measureClockEnd;
+		// 		}
+		// 	}
+		// }
+		// add white space bumper between measures
+		for(var i = 0; i < 16; i++){
+			if(allChannels[i].length){
+				allChannels[i].push('       ');
+			}
+		}
+	}
+	return allChannels;
+}
+
+// function voiceEventsBetweenMeasures(lines, beginMeasure, endMeasure){
+// 	var trimBeginClocks = MEASURE_LENGTH * beginMeasure;
+// 	var trimLengthClocks = MEASURE_LENGTH * endMeasure;
+
+// 	var allPitches = new Array(128);
+// 	// setup an empty array of arrays
+// 	var allChannels = new Array(16);
+// 	// keep track of (channel-independent) last event, in case of gaps in time, requires a rest
+// 	var lastEndingRecorded = new Array(16);
+// 	for(var i = 0; i < 16; i++){
+// 		allChannels[i] = [];
+// 		lastEndingRecorded[i] = trimBeginClocks;
+// 	}
+
+// 	for(var m = beginMeasure; m < endMeasure; m++){
+// 		// get clock timestamp boundaries of the current measure
+// 		var measureClockBegin = m * MEASURE_LENGTH;
+// 		var measureClockEnd = (m+1) * MEASURE_LENGTH;
+// 		// extract all note events for this measure
+// 		for(var i = 0; i < lines.length; i++){
+// 			if(lines[i].length > 5){
+// 				// find events only inside of current measure
+// 				var eventTime = Number( lines[i][1].trim() );
+// 				if(eventTime >= measureClockBegin && eventTime < measureClockEnd){
+// 					var channel = Number( lines[i][0].trim() );
+// 					var eventType = lines[i][2].trim();
+// 					// if event is note on (and velocity is not 0, because that is also signal for note off)
+// 					if(eventType == 'Note_on_c' && lines[i][5] != 0){
+// 						// new note!  store the time of the start of the note
+// 						allPitches[ lines[i][4] ] = lines[i][1];
+// 					}
+// 					else if( (eventType == 'Note_off_c') || (eventType == 'Note_on_c' && lines[i][5] == 0) ) {
+// 						var pitch = Number( lines[i][4].trim() );
+// 						if( allPitches[ pitch ] != undefined ){
+// 							var time = allPitches[ pitch ];
+// 							if( allPitches[ pitch ] ){
+// 								var time = allPitches[ pitch ];
+// 								var duration = lines[i][1] - time;  // in midi clicks
+// 								// convert to 4=quarter, 2=half, 8=eighth
+// 								allChannels[channel].push( lilypondFormattedNote(pitch, duration) );
+// 								// clear noteOn from bank
+// 								allPitches[ pitch ] = undefined;
+// 								// keep track of note end, in case we need to add rest before next note
+// 								lastEndingRecorded[channel] = lines[i][1];
+// 							}
+// 						}
+// 						else{
+// 							var time = measureClockBegin;
+// 							var duration = lines[i][1] - time;  // in midi clicks
+// 							// convert to 4=quarter, 2=half, 8=eighth
+// 							if(duration != 0){
+// 								// if duration is zero, it's a note off without a note on. with no duration
+// 								allChannels[channel].push( lilypondFormattedNote( pitch, duration) );
+// 							}
+// 							// keep track of note end, in case we need to add rest before next note
+// 							// lastEndingRecorded[channel] = lines[i][1];
+// 						}
+// 					}
+// 				}
+// 			}
+// 		}
+// 		// close up shop, we're done with this measure
+// 		for(var i = 0; i < allPitches.length; i++){
+// 			// if note exists			
+// 			if( allPitches[ lines[i][4] ] != undefined ){
+// 				var time = allPitches[ lines[i][4] ];
+// 				// var duration = lines[i][1] - time;  // in midi clicks
+// 				var duration = measureClockEnd - time;  // in midi clicks
+// 				// convert to 4=quarter, 2=half, 8=eighth
+// 				console.log('measure-ending a note: ' + i + ' duration: ' + duration);
+// 				allChannels[channel].push( lilypondFormattedNote( i, duration) );
+// 				// clear noteOn from bank
+// 				allPitches[ lines[i][4] ] = undefined;
+// 				// keep track of note end, in case we need to add rest before next note
+// 				// lastEndingRecorded[channel] = lines[i][1];
+// 				lastEndingRecorded[i] = measureClockEnd;
+// 			}
+// 		}
+// 		// add white space bumper between measures
+// 		for(var i = 0; i < 16; i++){
+// 			if(allChannels[i].length){
+// 				allChannels[i].push('       ');
+// 			}
+// 		}
+// 	}
+// 	return allChannels;
+// }
 function voiceEventsBetweenTimes(lines, beginTime, endTime){
 	var allPitches = new Array(128);
 	// setup an empty array of arrays
@@ -282,8 +498,8 @@ function voiceEventsBetweenTimes(lines, beginTime, endTime){
 
 	for(var i = 0; i < lines.length; i++){
 		if(lines[i].length){
-			var channel = Number( lines[i][0].trim() );
 			if(lines[i].length >= 2 && lines[i][1] >= beginTime && lines[i][1] < endTime){
+				var channel = Number( lines[i][0].trim() );
 				var eventType = lines[i][2].trim();
 				// if event is note on (and velocity is not 0, because that is also signal for note off)
 				if(eventType == 'Note_on_c' && lines[i][5] != 0){
@@ -384,13 +600,15 @@ parseMIDIFileArray: function(midiCSVArray){
 	// TODO: this only works if there is only one time signature
 	var lastEventTime = 0;
 	for(var i = 0; i < midiCSVArray.length; i++){
-		if(midiCSVArray[i].length && midiCSVArray[i][1] > lastEventTime)
-			lastEventTime = midiCSVArray[i][1];
+		if(midiCSVArray[i].length)
+			if(Number(midiCSVArray[i][1]) > lastEventTime)
+				lastEventTime = midiCSVArray[i][1];
 	}
 	var total_num_measures = lastEventTime / MEASURE_LENGTH;
 
 	var trimLengthMeasures = 4;	
 	trimBeginMeasure = Math.floor( Math.random()*(total_num_measures-trimLengthMeasures) );
+	trimBeginMeasure = 0;
 	var trimBeginClocks = MEASURE_LENGTH * trimBeginMeasure;
 	var trimLengthClocks = MEASURE_LENGTH * trimLengthMeasures;
 
@@ -410,8 +628,8 @@ parseMIDIFileArray: function(midiCSVArray){
 
 	makeNoteNames(currentKey.key);
 
-
-	var channels = voiceEventsBetweenTimes(midiCSVArray, trimBeginClocks, trimBeginClocks + trimLengthClocks);
+	var channels = voiceEventsBetweenMeasures(midiCSVArray, trimBeginMeasure, trimBeginMeasure + trimLengthMeasures);
+	// var channels = voiceEventsBetweenTimes(midiCSVArray, trimBeginClocks, trimBeginClocks + trimLengthClocks);
 	var activeChannels = [];
 	for(var i = 0; i < 16; i++){
 		if(channels[i].length)

@@ -43,6 +43,8 @@ fs.readdir('../BachMidi', function (err, data){
 	var selection = Math.floor(Math.random()*data.length);
 	var filename = data[selection];
 
+	filename = 'Bwv784 Invention n13.mid';
+
 	// convert file to CSV (make filename terminal readable, escape spaces)
 	var cmd = 'midicsv ' + '../BachMidi/' + replaceAll(filename, ' ', '\\ ');
 	exec(cmd, midiCSVFinished);
@@ -61,6 +63,8 @@ fs.readdir('../BachMidi', function (err, data){
 		var lilyPondString = midiParse.parseMIDIFileArray(midiFileArray);
 		// console.log(midiParse);
 		// console.log(lilyPondString);
+
+		console.log( 'Typset: ' + removeExtension(filename) );
 
 		fs.writeFile('../music.ly', lilyPondString, function (err) {
 			var cmd = '/Applications/LilyPond.app/Contents/Resources/bin/lilypond -fpng -dresolution=220 -o ../music ../music.ly';
