@@ -41,17 +41,25 @@ Fraction.prototype.toString = function()
 ////////////////////////////////////////////////////////////////////////////////////
 
 var noteNames;
-makeNoteNames();
+makeNoteNames(0);
 
-function makeNoteNames(){
+function makeNoteNames(key){
+	// key input is -7 = all flats,  0 is C,  7 is all sharps
+	key *= 2;
+	key += 2;
+	if(key < 0) key = 0;
+	if(key > 5) key = 5;
 	noteNames = [];
 	var chromatic = ['c', ' ', 'd', ' ', 'e', 'f', ' ', 'g', ' ', 'a', ' ', 'b'];
-	var accidentals = ['cis', 'dis', 'fis', 'gis', 'ais']; // 5 sharp
-	// var accidentals = ['cis', 'dis', 'fis', 'gis', 'bes']; // 4 sharp 1 flat
-	// var accidentals = ['cis', 'ees', 'fis', 'gis', 'bes']; // 3 sharp 2 flat
-	// var accidentals = ['cis', 'ees', 'fis', 'aes', 'bes']; // 2 sharp 3 flat
-	// var accidentals = ['des', 'ees', 'fis', 'aes', 'bes']; // 1 sharp 4 flat
-	// var accidentals = ['des', 'ees', 'ges', 'aes', 'bes']; // 5 flat
+	var accidentalsSet = [
+		['des', 'ees', 'ges', 'aes', 'bes'], // 5 flat
+		['des', 'ees', 'fis', 'aes', 'bes'], // 1 sharp 4 flat
+		['cis', 'ees', 'fis', 'aes', 'bes'], // 2 sharp 3 flat
+		['cis', 'ees', 'fis', 'gis', 'bes'], // 3 sharp 2 flat
+		['cis', 'dis', 'fis', 'gis', 'bes'], // 4 sharp 1 flat
+		['cis', 'dis', 'fis', 'gis', 'ais'], // 5 sharp
+	];
+	var accidentals = accidentalsSet[key];
 	var octaveMarks = [',,,,', ',,,', ',,', ',', '', '\'', '\'\'', '\'\'\'', '\'\'\'\''];
 
 	for(var oct = 0; oct < 9; oct++){
@@ -399,6 +407,8 @@ parseMIDIFileArray: function(midiCSVArray){
 	console.log('current key');  console.log(currentKey);
 	console.log('current time sig');  console.log(currentTimeSignature);
 	console.log('current tempo');  console.log(currentTempo);
+
+	makeNoteNames(currentKey.key);
 
 
 	var channels = voiceEventsBetweenTimes(midiCSVArray, trimBeginClocks, trimBeginClocks + trimLengthClocks);
