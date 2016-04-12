@@ -24,12 +24,12 @@ var midiParse = require('../MIDICSVReader.js');
 ////////////////     TERMINAL     ///////////////////////
 /////////////////////////////////////////////////////////
 function removeExtension(filename){
-    var lastDotPosition = filename.lastIndexOf(".");
-    if (lastDotPosition === -1) return filename;
-    else return filename.substr(0, lastDotPosition);
+	var lastDotPosition = filename.lastIndexOf(".");
+	if (lastDotPosition === -1) return filename;
+	else return filename.substr(0, lastDotPosition);
 }
 function replaceAll(str, find, replace) {
-  return str.replace(new RegExp(find, 'g'), replace);
+	return str.replace(new RegExp(find, 'g'), replace);
 }
 
 var exec = require('child_process').exec;
@@ -43,13 +43,13 @@ fs.readdir('../BachMidi', function (err, data){
 	var selection = Math.floor(Math.random()*data.length);
 	var filename = data[selection];
 
-	filename = 'Bwv784 Invention n13.mid';
+	// filename = 'Bwv784 Invention n13.mid';
 
 	// convert file to CSV (make filename terminal readable, escape spaces)
 	var cmd = 'midicsv ' + '../BachMidi/' + replaceAll(filename, ' ', '\\ ');
 	exec(cmd, midiCSVFinished);
 	function midiCSVFinished(err, stdout, stderr){
-		console.log( 'Loading file: ' + removeExtension(filename) );
+		console.log( removeExtension(filename) );
 		if(stdout.length == 0){
 			console.log('ERROR- MIDI conversion is empty');
 			console.log(err);
@@ -59,17 +59,67 @@ fs.readdir('../BachMidi', function (err, data){
 		fs.writeFile('../music.csv', stdout);
 		// convert CSV file to javascript nested arrays
 		var midiFileArray = midiParse.csvToArray(stdout);
-		// parse MIDI CSV file
-		var lilyPondString = midiParse.parseMIDIFileArray(midiFileArray);
-		// console.log(midiParse);
-		// console.log(lilyPondString);
 
-		console.log( 'Typset: ' + removeExtension(filename) );
+		// grab MIDI header info
+		var midiInfo = midiParse.getMIDIInfo(midiFileArray);
 
-		fs.writeFile('../music.ly', lilyPondString, function (err) {
-			var cmd = '/Applications/LilyPond.app/Contents/Resources/bin/lilypond -fpng -dresolution=220 -o ../music ../music.ly';
-			exec(cmd, lilyPondFinished);
+		// setup our trim conditions:
+		var total_num_measures = midiInfo['measures'];
+		var trimLengthMeasures = 4;	
+		var trimBeginMeasure = Math.floor( Math.random()*(total_num_measures-trimLengthMeasures) );
+
+		console.log( '  - Trimming measures ' + (trimBeginMeasure+1) + ' to ' + (trimBeginMeasure + trimLengthMeasures) );
+
+		// make a trimmed MIDI file
+		var toCrop = JSON.parse(JSON.stringify(midiFileArray));
+		var croppedArray = midiParse.cropMIDICSV(toCrop, trimBeginMeasure, trimBeginMeasure + trimLengthMeasures);
+		// console.log(croppedArray);
+		var croppedCSV = midiParse.arrayToCSV(croppedArray);
+
+		fs.writeFile('../music_trim.csv', croppedCSV, function (err){
+			var cmd = 'csvmidi ../music_trim.csv ../music_trim.mid';
+			exec(cmd, midiFileWritten);
 		});
+		function midiFileWritten(err){
+			console.log( '  - MIDI file trimmed' );
+			if(err)
+				console.log(err);
+			var cmd = 'fluidsynth -F ../music.raw ../Blanchet.sf2 ../music_trim.mid';
+			exec(cmd, rawFileWritten);
+		}
+
+		function rawFileWritten(err){
+			if(err)
+				console.log(err);
+			var cmd = './../sox -t raw -r 44100 -v 6.0 -e signed -b 16 -c 2 ../music.raw ../music_quiet.wav';
+			exec(cmd, waveFileWritten);
+		}
+
+		function waveFileWritten(err){
+			console.log( '  - MIDI conversion to WAV' );
+			var cmd1 = './../sox ../music_quiet.wav -n stat -v';
+			exec(cmd1, function (err, stdout, volume){
+				console.log('  - Normalizing audio x' + volume);
+				if(volume == undefined || volume > 100)
+					volume = 1.0;
+				var cmd2 = './../sox -v ' + (volume * 0.8) + ' ../music_quiet.wav ../music.wav';
+				exec(cmd2, waveFileNormalized);
+			});
+		}
+
+		function waveFileNormalized(err){
+			if(err)
+				console.log(err);
+			var lilyPondString = midiParse.lilypondTypesetMeasures(midiFileArray, trimBeginMeasure, trimBeginMeasure + trimLengthMeasures);
+
+			console.log( '  - Typset: ' + removeExtension(filename) );
+
+			fs.writeFile('../music.ly', lilyPondString, function (err) {
+				var cmd = '/Applications/LilyPond.app/Contents/Resources/bin/lilypond -fpng -dresolution=220 -o ../music ../music.ly';
+				exec(cmd, lilyPondFinished);
+			});
+
+		}
 	}
 });
 
@@ -82,7 +132,7 @@ function lilyPondFinished(err, stdout, stderr){
 	var cmdTrim = 'convert -trim ../music.png ../music.png'
 	exec(cmdTrim, addPadding);
 	function addPadding(){
-		console.log('adding padding');
+		console.log('  - image cropped');
 		var cmdExtend = 'convert -background white -gravity center -extent 110%x110% ../music.png ../music.png';
 		exec(cmdExtend, croppingFinished);			
 	}
@@ -90,7 +140,7 @@ function lilyPondFinished(err, stdout, stderr){
 // trim
 // gm("img.png").extent([width, height, options])
 function croppingFinished() {
-	console.log('cropping finished');
+	// console.log('  - posting to twitter..');
 	// var filename = '../music.png';
 	// var params = { encoding: 'base64' }
 	// var b64 = fs.readFileSync(filename, params);

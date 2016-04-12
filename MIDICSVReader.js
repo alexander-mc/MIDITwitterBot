@@ -1,44 +1,20 @@
-function Fraction(){}
-Fraction.prototype.convert = function(x, improper)
-{
-    improper = improper || false;
-    var abs = Math.abs(x);
-    this.sign = x/abs;
-    x = abs;
-    var stack = 0;
-    this.whole = !improper ? Math.floor(x) : 0;
-    var fractional = !improper ? x-this.whole : abs;
-    /*recursive function that transforms the fraction*/
-    function recurs(x){
-        stack++;
-        var intgr = Math.floor(x); //get the integer part of the number
-        var dec = (x - intgr); //get the decimal part of the number
-        if(dec < 0.0019 || stack > 20) return [intgr,1]; //return the last integer you divided by
-        var num = recurs(1/dec); //call the function again with the inverted decimal part
-        return[intgr*num[0]+num[1],num[0]]
-    }
-    var t = recurs(fractional); 
-    this.numerator = t[0];
-    this.denominator = t[1];
-}
 
-Fraction.prototype.toString = function()
-{
-    var l  = this.sign.toString().length;
-    var sign = l === 2 ? '-' : '';
-    var whole = this.whole !== 0 ? this.sign*this.whole+' ': sign;
-    return whole+this.numerator+'/'+this.denominator;
-}
-
-//var frac = new Fraction()
-//frac.convert(2.56, false)
-//console.log(frac.toString())
-//use frac.convert(2.56,true) to get it as an improper fraction
+var MIDI_INSTRUMENT = 6;
 
 
-////////////////////////////////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////////////////////////////////
+var PADDING = 10;
+
+var trimBeginMeasure;
+
+var MEASURE_LENGTH;
+
+var quartersPerMeasure;
+var clocksPerQuarterNote;  // neighborhood of half-a-hundred to a few hundred
+
+var currentKey;
+var currentTimeSignature;
+var currentTempo;
+
 
 var noteNames;
 makeNoteNames(0);
@@ -201,19 +177,6 @@ function getTempoAtTime(midiCSVArray, time){
 	return tempos[closestIndex];
 }
 
-var PADDING = 10;
-
-var trimBeginMeasure;
-
-var MEASURE_LENGTH;
-
-var quartersPerMeasure;
-var clocksPerQuarterNote;  // neighborhood of half-a-hundred to a few hundred
-
-var currentKey;
-var currentTimeSignature;
-var currentTempo;
-
 function stringForCurrentKey(){
 	// indices are -7 to +7, relating to number of flats / sharps
 	var majorKeyArray = ['ces', 'ges', 'des', 'aes', 'ees', 'bes', 'f', 'c', 'g', 'd', 'a', 'e', 'b', 'fis', 'cis'];
@@ -282,11 +245,11 @@ function voiceEventsBetweenMeasures(lines, beginMeasure, endMeasure){
 	// setup an empty array of arrays
 	var allChannels = new Array(16);
 	// keep track of (channel-independent) last event, in case of gaps in time, requires a rest
-	var lastEndingRecorded = new Array(16);
+	// var lastEndingRecorded = new Array(16);
 	for(var i = 0; i < 16; i++){
 		allPitches[i] = new Array(128);
 		allChannels[i] = [];
-		lastEndingRecorded[i] = trimBeginClocks;
+		// lastEndingRecorded[i] = trimBeginClocks;
 	}
 
 	for(var m = beginMeasure; m < endMeasure; m++){
@@ -297,8 +260,8 @@ function voiceEventsBetweenMeasures(lines, beginMeasure, endMeasure){
 		for(var i = 0; i < lines.length; i++){
 			if(lines[i].length > 5){
 				// find events only inside of current measure
-				var eventTime = Number( lines[i][1].trim() );
-				if(eventTime >= measureClockBegin && eventTime < measureClockEnd){
+				var eventTime = Number( lines[i][1] );
+				if(eventTime >= measureClockBegin && eventTime <= measureClockEnd){
 					var channel = Number( lines[i][0].trim() );
 					var eventType = lines[i][2].trim();
 					var pitch = Number( lines[i][4].trim() );
@@ -314,58 +277,33 @@ function voiceEventsBetweenMeasures(lines, beginMeasure, endMeasure){
 							}
 						}
 						if(hangingNoteStart == undefined){
-							console.log('rest');
+							// console.log('rest');
 							// rest
 							var duration = eventTime - measureClockBegin;  // in midi clicks
 							// convert to 4=quarter, 2=half, 8=eighth
 							if(duration > PADDING)
 								allChannels[channel].push( lilypondFormattedNote(-1, duration) );
-							// clear noteOn from bank
-							allPitches[ channel ][ hangingNotePitch ] = undefined;
 							// keep track of note end, in case we need to add rest before next note
-							lastEndingRecorded[channel] = eventTime;
+							// lastEndingRecorded[channel] = eventTime;
 						}
 						else{
 							// note
 							var duration = eventTime - hangingNoteStart;  // in midi clicks
-							console.log('note ' + pitch + ' ' + duration);
+							// console.log('note ' + pitch + ' ' + duration);
 							// convert to 4=quarter, 2=half, 8=eighth
 							if(duration > PADDING)
 								allChannels[channel].push( lilypondFormattedNote(hangingNotePitch, duration) );
 							// clear noteOn from bank
 							allPitches[ channel ][ hangingNotePitch ] = undefined;
 							// keep track of note end, in case we need to add rest before next note
-							lastEndingRecorded[channel] = eventTime;
+							// lastEndingRecorded[channel] = eventTime;
 						}
-						allPitches[ channel ][ pitch ] = eventTime;
-						console.log('setting pitch ' + pitch + ' on channel ' + channel);
+						// as long as this is not the first beat of the next measure, add note
+						if(eventTime !=  (m+1) * MEASURE_LENGTH){
+							allPitches[ channel ][ pitch ] = eventTime;
+							// console.log('setting pitch ' + pitch + ' on channel ' + channel);
+						}
 					}
-					// else if( (eventType == 'Note_off_c') || (eventType == 'Note_on_c' && lines[i][5] == 0) ) {
-					// 	if( allPitches[ channel ][ pitch ] != undefined ){
-					// 		var time = allPitches[ channel ][ pitch ];
-					// 		if( allPitches[ channel ][ pitch ] ){
-					// 			var time = lastEndingRecorded[channel]; //allPitches[ channel ][ pitch ];
-					// 			var duration = lines[i][1] - time;  // in midi clicks
-					// 			// convert to 4=quarter, 2=half, 8=eighth
-					// 			allChannels[channel].push( lilypondFormattedNote(pitch, duration) );
-					// 			// clear noteOn from bank
-					// 			allPitches[ channel ][ pitch ] = undefined;
-					// 			// keep track of note end, in case we need to add rest before next note
-					// 			lastEndingRecorded[channel] = lines[i][1];
-					// 		}
-					// 	}
-					// 	else{
-					// 		var time = measureClockBegin;
-					// 		var duration = lines[i][1] - time;  // in midi clicks
-					// 		// convert to 4=quarter, 2=half, 8=eighth
-					// 		if(duration != 0){
-					// 			// if duration is zero, it's a note off without a note on. with no duration
-					// 			allChannels[channel].push( lilypondFormattedNote( pitch, duration) );
-					// 		}
-					// 		// keep track of note end, in case we need to add rest before next note
-					// 		lastEndingRecorded[channel] = lines[i][1];
-					// 	}
-					// }
 				}
 			}
 		}
@@ -392,6 +330,26 @@ function voiceEventsBetweenMeasures(lines, beginMeasure, endMeasure){
 		for(var i = 0; i < 16; i++){
 			if(allChannels[i].length){
 				allChannels[i].push('       ');
+			}
+		}
+	}
+	// console.log('checking for hanging notes');
+	for(var c = 0; c < allPitches.length; c++){
+		for(var i = 0; i < allPitches[c].length; i++){
+			// if note exists
+			// console.log(c + ' ' + i + ' ' + allPitches[c][i]);
+			if( allPitches[ c ][ i ] != undefined ){
+				var time = allPitches[ c ][ i ];
+				// var duration = lines[i][1] - time;  // in midi clicks
+				var duration = measureClockEnd - time;  // in midi clicks
+				// console.log('hanging note: ' + lilypondFormattedNote( i, duration) + ' channel:' + c + '  duration:' + duration );
+				// convert to 4=quarter, 2=half, 8=eighth
+				allChannels[ c ].push( lilypondFormattedNote( i, duration) );
+				// clear noteOn from bank
+				allPitches[ c ][ i ] = undefined;
+				// keep track of note end, in case we need to add rest before next note
+				// lastEndingRecorded[channel] = lines[i][1];
+				// lastEndingRecorded[ c ] = measureClockEnd;
 			}
 		}
 	}
@@ -485,6 +443,8 @@ function voiceEventsBetweenMeasures(lines, beginMeasure, endMeasure){
 // 	}
 // 	return allChannels;
 // }
+
+
 function voiceEventsBetweenTimes(lines, beginTime, endTime){
 	var allPitches = new Array(128);
 	// setup an empty array of arrays
@@ -553,35 +513,18 @@ function printNoteValues(noteEvents){
 		timeSignatureString + '\n';
 
 		var voiceEntries = noteEvents[ channel ];
-		console.log(voiceEntries);
+		// console.log(voiceEntries);
 		for(var i = 0; i < voiceEntries.length; i++){
 			returnString += ' ' + voiceEntries[i];
 		}
 		returnString += '\n}\n';
 	}
 	returnString += '\n\>\>\n}';
-	console.log(returnString);
+	// console.log(returnString);
 	return returnString;
 }
 
-module.exports = {
-
-csvToArray: function(allText) {
-	var allTextLines = allText.split(/\r\n|\n/);
-	var headers = allTextLines[0].split(',');
-	var lines = [];
-	for (var i=0; i<allTextLines.length; i++) {
-		var data = allTextLines[i].split(',');
-		var tarr = [];
-		for (var j=0; j<data.length; j++) {
-			tarr.push( data[j].trim() );
-		}
-		lines.push(tarr);
-	}
-	return lines;
-},
-
-parseMIDIFileArray: function(midiCSVArray){
+function getMIDIInfoInternal(midiCSVArray){
 	// read header
 	var i = 0;
 	clocksPerQuarterNote = undefined;
@@ -605,37 +548,144 @@ parseMIDIFileArray: function(midiCSVArray){
 				lastEventTime = midiCSVArray[i][1];
 	}
 	var total_num_measures = lastEventTime / MEASURE_LENGTH;
+	return {
+		'timeSignature' : initialTimeSignature,
+		'measures' : total_num_measures,
+		'clocksPerMeasure' : MEASURE_LENGTH,
+	};	
+}
 
-	var trimLengthMeasures = 4;	
-	trimBeginMeasure = Math.floor( Math.random()*(total_num_measures-trimLengthMeasures) );
-	trimBeginMeasure = 0;
-	var trimBeginClocks = MEASURE_LENGTH * trimBeginMeasure;
-	var trimLengthClocks = MEASURE_LENGTH * trimLengthMeasures;
+module.exports = {
+
+csvToArray: function(allText) {
+	var allTextLines = allText.split(/\r\n|\n/);
+	var headers = allTextLines[0].split(',');
+	var lines = [];
+	for (var i=0; i<allTextLines.length; i++) {
+		var data = allTextLines[i].split(',');
+		var tarr = [];
+		for (var j=0; j<data.length; j++) {
+			tarr.push( data[j].trim() );
+		}
+		lines.push(tarr);
+	}
+	return lines;
+},
+
+arrayToCSV: function(midiCSVArray) {
+	var allText = '';
+	for(var i = 0; i < midiCSVArray.length; i++){
+		for(var j = 0; j < midiCSVArray[i].length; j++){
+			var entry = ', ';
+			if(j == 0)
+				entry = '';
+			allText += entry + midiCSVArray[i][j];
+		}
+		allText += '\n';
+	}
+	allText += '\n';
+	return allText;
+	// var allTextLines = allText.split(/\r\n|\n/);
+	// var headers = allTextLines[0].split(',');
+	// var lines = [];
+	// for (var i=0; i<allTextLines.length; i++) {
+	// 	var data = allTextLines[i].split(',');
+	// 	var tarr = [];
+	// 	for (var j=0; j<data.length; j++) {
+	// 		tarr.push( data[j].trim() );
+	// 	}
+	// 	lines.push(tarr);
+	// }
+	// return lines;
+},
+
+getMIDIInfo: function(midiCSVArray){
+	return getMIDIInfoInternal(midiCSVArray);
+},
+
+cropMIDICSV: function(midiCSVArray, startMeasure, endMeasure){
+	var croppedArray  = [];
+	var trimBeginClocks = MEASURE_LENGTH * startMeasure;
+	var trimEndClocks = MEASURE_LENGTH * endMeasure;
+	getMIDIInfoInternal(midiCSVArray);
+	for(var i = 0; i < midiCSVArray.length; i++){
+		if(midiCSVArray[i].length > 1){
+			var eventTime = Number( midiCSVArray[i][1].trim() );
+			var eventType = midiCSVArray[i][2].trim();
+			if(eventType == 'Start_track'){
+				croppedArray.push(midiCSVArray[i]);
+				// set instrument, in case none exists
+				croppedArray.push([ midiCSVArray[i][0], 0, 'Program_c', 0, MIDI_INSTRUMENT ]);
+				croppedArray.push([ midiCSVArray[i][0], 0, 'Control_c', 0, 7, 127 ]);
+			}
+			else if(eventType == 'End_track'){
+				midiCSVArray[i][1] = trimEndClocks - trimBeginClocks + 150;
+				croppedArray.push(midiCSVArray[i]);
+			}
+			else if(eventType == 'Tempo'){
+				if(eventTime < 100){
+					midiCSVArray[i][3] = Number( midiCSVArray[i][3] ) * 1.5;
+					croppedArray.push(midiCSVArray[i]);
+				}
+			}
+			else if (eventType == 'Control_c'){				
+			}
+			else if(eventType == 'Program_c' && Number(midiCSVArray[i][3].trim()) == 0){
+				// set instrument, in case one already exists
+				//      (harpsichord:[1, 0, Program_c, 0, 6])
+				midiCSVArray[i][4] = MIDI_INSTRUMENT;
+				croppedArray.push(midiCSVArray[i]);
+			}
+			else if(eventTime == 0 && eventType != 'Note_on_c'){
+				croppedArray.push(midiCSVArray[i]);
+			}
+			else if(eventTime >= trimBeginClocks && eventTime < trimEndClocks){
+				midiCSVArray[i][1] = Number( midiCSVArray[i][1].trim() ) - trimBeginClocks;
+				croppedArray.push(midiCSVArray[i]);
+			}
+			else if(eventTime == trimEndClocks && ( eventType == 'Note_off_c' || ((eventType == 'Note_on_c' && midiCSVArray[i][5] == 0) ) ) ){
+				midiCSVArray[i][1] = Number( midiCSVArray[i][1].trim() ) - trimBeginClocks;
+				croppedArray.push(midiCSVArray[i]);
+			}
+		}
+	}
+	// check for hanging notes
+	return croppedArray;
+},
+
+lilypondTypesetMeasures: function(midiCSVArray, startMeasure, endMeasure){
+
+	getMIDIInfoInternal(midiCSVArray);
+
+	trimBeginMeasure = startMeasure;
+
+	var trimBeginClocks = MEASURE_LENGTH * startMeasure;
+	var trimEndClocks = MEASURE_LENGTH * endMeasure;
+
 
 	currentKey = getKeySignatureAtTime(midiCSVArray, trimBeginClocks);
 	currentTimeSignature = getTimeSignatureAtTime(midiCSVArray, trimBeginClocks);
 	currentTempo = getTempoAtTime(midiCSVArray, trimBeginClocks);
 
-	console.log('+++++++++++++++++    NEW FILE    ++++++++++++++++++++');
-	console.log('clocks per measure: ' + clocksPerQuarterNote * quartersPerMeasure);
-	console.log('TOTAL: ' + total_num_measures + ' measures,  ' + lastEventTime + ' clocks');
-	console.log('quarter notes per measure: ' + quartersPerMeasure + '   measure clocks: ' + MEASURE_LENGTH);
-	console.log('-----------------    EXCERPT     --------------------');
-	console.log('measure: ' + trimBeginMeasure + ' (' + trimBeginClocks + ') - ' + (trimBeginMeasure+trimLengthMeasures) + ' (' + trimLengthMeasures + ')');
-	console.log('current key');  console.log(currentKey);
-	console.log('current time sig');  console.log(currentTimeSignature);
-	console.log('current tempo');  console.log(currentTempo);
+	// console.log('+++++++++++++++++    NEW FILE    ++++++++++++++++++++');
+	// console.log('clocks per measure: ' + clocksPerQuarterNote * quartersPerMeasure);
+	// console.log('TOTAL: ' + total_num_measures + ' measures,  ' + lastEventTime + ' clocks');
+	// console.log('quarter notes per measure: ' + quartersPerMeasure + '   measure clocks: ' + MEASURE_LENGTH);
+	// console.log('-----------------    EXCERPT     --------------------');
+	// console.log('measure: ' + trimBeginMeasure + ' (' + trimBeginClocks + ') - ' + (endMeasure) + ' (' + trimEndClocks + ')');
+	// console.log('current key');  console.log(currentKey);
+	// console.log('current time sig');  console.log(currentTimeSignature);
+	// console.log('current tempo');  console.log(currentTempo);
 
 	makeNoteNames(currentKey.key);
 
-	var channels = voiceEventsBetweenMeasures(midiCSVArray, trimBeginMeasure, trimBeginMeasure + trimLengthMeasures);
-	// var channels = voiceEventsBetweenTimes(midiCSVArray, trimBeginClocks, trimBeginClocks + trimLengthClocks);
+	var channels = voiceEventsBetweenMeasures(midiCSVArray, startMeasure, endMeasure);
+	// var channels = voiceEventsBetweenTimes(midiCSVArray, trimBeginClocks, trimEndClocks);
 	var activeChannels = [];
 	for(var i = 0; i < 16; i++){
 		if(channels[i].length)
 			activeChannels.push( channels[i] );
 	}
-	// console.log(activeChannels);
 	return printNoteValues( activeChannels );
 }
 
