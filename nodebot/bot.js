@@ -12,18 +12,45 @@ console.log('The bot is starting..');
 
 var midiParse = require('../MIDICSVReader.js');
 
+var DIRECTORY_MIDI_FILES = '/Users/robby/Code/MIDITwitterBot/Bach/';
+
 
 //////// write
 	// var fs = require('fs');
 	// var json = JSON.stringify(eventMsg, null, 2);
 	// fs.writeFile('tweet.json', json);
 
+///////////////////////////////////////////
+//  SOUNDCLOUD
+//////////////////////////////////////////////////////////
+// var SC = require('soundcloud');
 
+// var soundcloudConfig = require('./soundcloudConfig');
+
+// SC.initialize({
+//   client_id: soundcloudConfig['client_id'],
+//   redirect_uri: 'http://robbykraft.com'
+// });
+
+// var upload = SC.upload({
+//   file: aBigBlob, // a Blob of your WAV, MP3...
+//   title: 'This upload took quite some while'
+// });
+
+// upload.request.addEventListener('progress', function(e){
+//   console.log('progress: ', (e.loaded / e.total) * 100, '%');
+// });
+
+// upload.then(function(track){
+//   alert('Upload is done! Check your sound at ' + track.permalink_url);
+// });
 
 /////////////////////////////////////////////////////////
 ////////////////     TERMINAL     ///////////////////////
 /////////////////////////////////////////////////////////
 function removeExtension(filename){
+	filename = filename.replace(DIRECTORY_MIDI_FILES, '');
+
 	var lastDotPosition = filename.lastIndexOf(".");
 	if (lastDotPosition === -1) return filename;
 	else return filename.substr(0, lastDotPosition);
@@ -36,18 +63,44 @@ var exec = require('child_process').exec;
 var fs = require('fs');
 
 
-fs.readdir('../BachMidi', function (err, data){
-	// console.log(data);
+var path = require('path');
+var walk = function(dir, done) {
+  var results = [];
+  fs.readdir(dir, function(err, list) {
+    if (err) return done(err);
+    var pending = list.length;
+    if (!pending) return done(null, results);
+    list.forEach(function(file) {
+      file = path.resolve(dir, file);
+      fs.stat(file, function(err, stat) {
+        if (stat && stat.isDirectory()) {
+          walk(file, function(err, res) {
+            results = results.concat(res);
+            if (!--pending) done(null, results);
+          });
+        } else {
+          results.push(file);
+          if (!--pending) done(null, results);
+        }
+      });
+    });
+  });
+};
 
+
+walk( DIRECTORY_MIDI_FILES, function(err, results){
 	// randomly select file from directory
-	var selection = Math.floor(Math.random()*data.length);
-	var filename = data[selection];
+	var selection = Math.floor(Math.random()*results.length);
+	var filename = results[selection];
 
-	// filename = 'Bwv784 Invention n13.mid';
+	// filename = DIRECTORY_MIDI_FILES + 'Concertos/Bwv1047\ Brandenburg\ Concert\ n2\ 1mov.mid'
+	// filename = DIRECTORY_MIDI_FILES + 'Bwv772-786\ Two\ Part\ Inventions/Bwv784\ Invention\ n13.mid';
+
+	console.log(filename);
 
 	// convert file to CSV (make filename terminal readable, escape spaces)
-	var cmd = 'midicsv ' + '../BachMidi/' + replaceAll(filename, ' ', '\\ ');
-	exec(cmd, midiCSVFinished);
+	var cmd = 'midicsv ' + replaceAll(filename, ' ', '\\ ');
+	exec(cmd, {maxBuffer: 1024 * 800}, midiCSVFinished);
 	function midiCSVFinished(err, stdout, stderr){
 		console.log( removeExtension(filename) );
 		if(stdout.length == 0){
@@ -65,14 +118,16 @@ fs.readdir('../BachMidi', function (err, data){
 
 		// setup our trim conditions:
 		var total_num_measures = midiInfo['measures'];
-		var trimLengthMeasures = 4;	
+		var trimLengthMeasures = Math.floor(Math.random() * 4 + 3);
 		var trimBeginMeasure = Math.floor( Math.random()*(total_num_measures-trimLengthMeasures) );
 
 		console.log( '  - Trimming measures ' + (trimBeginMeasure+1) + ' to ' + (trimBeginMeasure + trimLengthMeasures) );
 
 		// make a trimmed MIDI file
 		var toCrop = JSON.parse(JSON.stringify(midiFileArray));
-		var croppedArray = midiParse.cropMIDICSV(toCrop, trimBeginMeasure, trimBeginMeasure + trimLengthMeasures);
+		var speedAdjust = Math.random()*.5 + 1.0;
+		console.log('  - slowing down by ' + speedAdjust)
+		var croppedArray = midiParse.cropMIDICSV(toCrop, trimBeginMeasure, trimBeginMeasure + trimLengthMeasures, speedAdjust);
 		// console.log(croppedArray);
 		var croppedCSV = midiParse.arrayToCSV(croppedArray);
 
@@ -99,7 +154,7 @@ fs.readdir('../BachMidi', function (err, data){
 			console.log( '  - MIDI conversion to WAV' );
 			var cmd1 = './../sox ../music_quiet.wav -n stat -v';
 			exec(cmd1, function (err, stdout, volume){
-				console.log('  - Normalizing audio x' + volume);
+				console.log('  - Normalizing audio x' + String(volume).trim() );
 				if(volume == undefined || volume > 100)
 					volume = 1.0;
 				var cmd2 = './../sox -v ' + (volume * 0.8) + ' ../music_quiet.wav ../music.wav';
@@ -112,7 +167,7 @@ fs.readdir('../BachMidi', function (err, data){
 				console.log(err);
 			var lilyPondString = midiParse.lilypondTypesetMeasures(midiFileArray, trimBeginMeasure, trimBeginMeasure + trimLengthMeasures);
 
-			console.log( '  - Typset: ' + removeExtension(filename) );
+			console.log( '  - Typset: ' + removeExtension(filename) + ' measures ' + (trimBeginMeasure+1) + '-' + (trimBeginMeasure + trimLengthMeasures) );
 
 			fs.writeFile('../music.ly', lilyPondString, function (err) {
 				var cmd = '/Applications/LilyPond.app/Contents/Resources/bin/lilypond -fpng -dresolution=220 -o ../music ../music.ly';

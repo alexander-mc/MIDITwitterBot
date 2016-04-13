@@ -1,6 +1,9 @@
 
 var MIDI_INSTRUMENT = 6;
 
+// argument in cropMIDICSV()
+var SPEED_ADJUST = 1.5; // inverted: larger than one is slower, less is faster
+
 
 var PADDING = 10;
 
@@ -603,7 +606,11 @@ getMIDIInfo: function(midiCSVArray){
 	return getMIDIInfoInternal(midiCSVArray);
 },
 
-cropMIDICSV: function(midiCSVArray, startMeasure, endMeasure){
+cropMIDICSV: function(midiCSVArray, startMeasure, endMeasure, speed_adjust){
+	if(speed_adjust == undefined)
+		speed_adjust = 1.5;
+	SPEED_ADJUST = speed_adjust;
+
 	var croppedArray  = [];
 	var trimBeginClocks = MEASURE_LENGTH * startMeasure;
 	var trimEndClocks = MEASURE_LENGTH * endMeasure;
@@ -624,7 +631,7 @@ cropMIDICSV: function(midiCSVArray, startMeasure, endMeasure){
 			}
 			else if(eventType == 'Tempo'){
 				if(eventTime < 100){
-					midiCSVArray[i][3] = Number( midiCSVArray[i][3] ) * 1.5;
+					midiCSVArray[i][3] = Number( midiCSVArray[i][3] ) * SPEED_ADJUST;
 					croppedArray.push(midiCSVArray[i]);
 				}
 			}
