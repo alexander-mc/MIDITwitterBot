@@ -96,6 +96,10 @@ walk( DIRECTORY_MIDI_FILES, function(err, results){
 	// filename = DIRECTORY_MIDI_FILES + 'Concertos/Bwv1047\ Brandenburg\ Concert\ n2\ 1mov.mid'
 	// filename = DIRECTORY_MIDI_FILES + 'Bwv772-786\ Two\ Part\ Inventions/Bwv784\ Invention\ n13.mid';
 
+// bugs with this one:
+// /Users/robby/Code/MIDITwitterBot/Bach/Bwv870-893\ The\ Well\ Tempered\ Clavier\ Book 2/WTCII08A.MID
+
+	// filename = DIRECTORY_MIDI_FILES + 'Chorales/065300b_.mid';
 	console.log(filename);
 
 	// convert file to CSV (make filename terminal readable, escape spaces)
@@ -109,7 +113,7 @@ walk( DIRECTORY_MIDI_FILES, function(err, results){
 			// must re do. midi conversion failed
 		}
 		// write CSV conversion to file
-		fs.writeFile('../music.csv', stdout);
+		fs.writeFile('../bin/music.csv', stdout);
 		// convert CSV file to javascript nested arrays
 		var midiFileArray = midiParse.csvToArray(stdout);
 
@@ -131,33 +135,33 @@ walk( DIRECTORY_MIDI_FILES, function(err, results){
 		// console.log(croppedArray);
 		var croppedCSV = midiParse.arrayToCSV(croppedArray);
 
-		fs.writeFile('../music_trim.csv', croppedCSV, function (err){
-			var cmd = 'csvmidi ../music_trim.csv ../music_trim.mid';
+		fs.writeFile('../bin/music_trim.csv', croppedCSV, function (err){
+			var cmd = 'csvmidi ../bin/music_trim.csv ../bin/music_trim.mid';
 			exec(cmd, midiFileWritten);
 		});
 		function midiFileWritten(err){
 			console.log( '  - MIDI file trimmed' );
 			if(err)
 				console.log(err);
-			var cmd = 'fluidsynth -F ../music.raw ../Blanchet.sf2 ../music_trim.mid';
+			var cmd = 'fluidsynth -F ../bin/music.raw ../Blanchet.sf2 ../bin/music_trim.mid';
 			exec(cmd, rawFileWritten);
 		}
 
 		function rawFileWritten(err){
 			if(err)
 				console.log(err);
-			var cmd = './../sox -t raw -r 44100 -v 6.0 -e signed -b 16 -c 2 ../music.raw ../music_quiet.wav';
+			var cmd = './../sox -t raw -r 44100 -v 6.0 -e signed -b 16 -c 2 ../bin/music.raw ../bin/music_quiet.wav';
 			exec(cmd, waveFileWritten);
 		}
 
 		function waveFileWritten(err){
 			console.log( '  - MIDI conversion to WAV' );
-			var cmd1 = './../sox ../music_quiet.wav -n stat -v';
+			var cmd1 = './../sox ../bin/music_quiet.wav -n stat -v';
 			exec(cmd1, function (err, stdout, volume){
 				console.log('  - Normalizing audio x' + String(volume).trim() );
 				if(volume == undefined || volume > 100)
 					volume = 1.0;
-				var cmd2 = './../sox -v ' + (volume * 0.8) + ' ../music_quiet.wav ../music.wav';
+				var cmd2 = './../sox -v ' + (volume * 0.8) + ' ../bin/music_quiet.wav ../bin/music.wav';
 				exec(cmd2, waveFileNormalized);
 			});
 		}
@@ -169,8 +173,8 @@ walk( DIRECTORY_MIDI_FILES, function(err, results){
 
 			console.log( '  - Typset: ' + removeExtension(filename) + ' measures ' + (trimBeginMeasure+1) + '-' + (trimBeginMeasure + trimLengthMeasures) );
 
-			fs.writeFile('../music.ly', lilyPondString, function (err) {
-				var cmd = '/Applications/LilyPond.app/Contents/Resources/bin/lilypond -fpng -dresolution=220 -o ../music ../music.ly';
+			fs.writeFile('../bin/music.ly', lilyPondString, function (err) {
+				var cmd = '/Applications/LilyPond.app/Contents/Resources/bin/lilypond -fpng -dresolution=220 -o ../bin/music ../bin/music.ly';
 				exec(cmd, lilyPondFinished);
 			});
 
@@ -184,11 +188,11 @@ function lilyPondFinished(err, stdout, stderr){
 		// console.log(err);
 	// verbose mode
 	// console.log(stderr);
-	var cmdTrim = 'convert -trim ../music.png ../music.png'
+	var cmdTrim = 'convert -trim ../bin/music.png ../bin/music.png'
 	exec(cmdTrim, addPadding);
 	function addPadding(){
 		console.log('  - image cropped');
-		var cmdExtend = 'convert -background white -gravity center -extent 110%x110% ../music.png ../music.png';
+		var cmdExtend = 'convert -background white -gravity center -extent 110%x110% ../bin/music.png ../bin/music.png';
 		exec(cmdExtend, croppingFinished);			
 	}
 }

@@ -22,6 +22,15 @@ var currentTempo;
 var noteNames;
 makeNoteNames(0);
 
+
+var avgPitch = new Array(16);
+var avgPitchCount = new Array(16);
+for(var i = 0; i < 16; i++){
+	avgPitch[i] = 0;
+	avgPitchCount[i] = 0;
+}
+
+
 function makeNoteNames(key){
 	// key input is -7 = all flats,  0 is C,  7 is all sharps
 	key *= 2;
@@ -270,6 +279,7 @@ function voiceEventsBetweenMeasures(lines, beginMeasure, endMeasure){
 					var pitch = Number( lines[i][4].trim() );
 					// if event is note on (and velocity is not 0, because that is also signal for note off)
 					if(eventType == 'Note_on_c' && lines[i][5] != 0){
+
 						// new note!  store the time of the start of the note
 						var hangingNoteStart = undefined;
 						var hangingNotePitch = undefined;
@@ -306,6 +316,10 @@ function voiceEventsBetweenMeasures(lines, beginMeasure, endMeasure){
 							allPitches[ channel ][ pitch ] = eventTime;
 							// console.log('setting pitch ' + pitch + ' on channel ' + channel);
 						}
+
+						// store for clef calculation
+						avgPitch[channel] += Number(lines[i][4]);
+						avgPitchCount[channel]++;
 					}
 				}
 			}
@@ -356,6 +370,13 @@ function voiceEventsBetweenMeasures(lines, beginMeasure, endMeasure){
 			}
 		}
 	}
+	console.log('  - Average pitch on channel:');
+	for(var i = 0; i < 16; i++){
+		avgPitch[i]  = avgPitch[i] / avgPitchCount[i];
+		if(avgPitch[i] > 0)
+			console.log('    - ' + i + ':  ' + (Math.round(avgPitch[i]*100)/100) + ' = ' + clefForAveragePitch(avgPitch[i]));
+	}
+
 	return allChannels;
 }
 
@@ -473,6 +494,9 @@ function voiceEventsBetweenTimes(lines, beginTime, endTime){
 						var duration = (lines[i][1] - lastEndingRecorded[channel]);
 						allChannels[channel].push( lilypondFormattedNote(-1, duration) );
 					}
+					// store for clef calculation
+					avgPitch[channel] += Number(lines[i][4]);
+					avgPitchCount[channel]++;
 				}
 				else if( (eventType == 'Note_off_c') || (eventType == 'Note_on_c' && lines[i][5] == 0) ) {
 					if( allPitches[ lines[i][4] ] ){
@@ -493,7 +517,22 @@ function voiceEventsBetweenTimes(lines, beginTime, endTime){
 			}
 		}
 	}
+	for(var i = 0; i < 16; i++){
+		avgPitch[i]  = avgPitch[i] / avgPitchCount;
+	}
 	return allChannels;
+}
+
+function clefForAveragePitch(pitch){
+	if(pitch < 42)
+		return 'bass_8';
+	else if(pitch < 55)
+		return 'bass';
+	else if(pitch < 62)
+		return 'alto';
+	else if(pitch < 89)
+		return 'treble';
+	return 'treble^8';
 }
 
 function printNoteValues(noteEvents){
@@ -501,26 +540,29 @@ function printNoteValues(noteEvents){
 
 	var returnString = '\\header {\ntagline = ""  % removed\n}\n\n\\score {\n\n\<\<\n';
 
-	for(var channel = 0; channel < noteEvents.length; channel++){
-		var clef = 'treble';
-		if(channel == 1) clef = 'bass';
-		var timeSignatureString = '\\time ' + currentTimeSignature['numerator'] + '/' + currentTimeSignature['denominator'];
-		var keyString = stringForCurrentKey();
-
-		returnString += '\\new Staff {' + '\n' + 
-		'\\set Score.currentBarNumber = #' + (trimBeginMeasure+1) + '\n' +
-		'\\set Score.barNumberVisibility = #all-bar-numbers-visible' + '\n' +
-		'\\bar ""' + '\n' +  
-		'\\clef "' + clef + '"' + '\n' + 
-		stringForCurrentKey() + '\n' + 
-		timeSignatureString + '\n';
-
+	for(var channel = 0; channel < 16; channel++){
 		var voiceEntries = noteEvents[ channel ];
-		// console.log(voiceEntries);
-		for(var i = 0; i < voiceEntries.length; i++){
-			returnString += ' ' + voiceEntries[i];
+		if(voiceEntries != undefined && voiceEntries.length > 0){
+			var clef = 'treble';
+			if(avgPitch[channel] != undefined) 
+				clef = clefForAveragePitch(avgPitch[channel]);
+			var timeSignatureString = '\\time ' + currentTimeSignature['numerator'] + '/' + currentTimeSignature['denominator'];
+			var keyString = stringForCurrentKey();
+
+			returnString += '\\new Staff {' + '\n' + 
+			'\\set Score.currentBarNumber = #' + (trimBeginMeasure+1) + '\n' +
+			'\\set Score.barNumberVisibility = #all-bar-numbers-visible' + '\n' +
+			'\\bar ""' + '\n' +  
+			'\\clef "' + clef + '"' + '\n' + 
+			stringForCurrentKey() + '\n' + 
+			timeSignatureString + '\n';
+
+			// console.log(voiceEntries);
+			for(var i = 0; i < voiceEntries.length; i++){
+				returnString += ' ' + voiceEntries[i];
+			}
+			returnString += '\n}\n';
 		}
-		returnString += '\n}\n';
 	}
 	returnString += '\n\>\>\n}';
 	// console.log(returnString);
@@ -688,12 +730,7 @@ lilypondTypesetMeasures: function(midiCSVArray, startMeasure, endMeasure){
 
 	var channels = voiceEventsBetweenMeasures(midiCSVArray, startMeasure, endMeasure);
 	// var channels = voiceEventsBetweenTimes(midiCSVArray, trimBeginClocks, trimEndClocks);
-	var activeChannels = [];
-	for(var i = 0; i < 16; i++){
-		if(channels[i].length)
-			activeChannels.push( channels[i] );
-	}
-	return printNoteValues( activeChannels );
+	return printNoteValues( channels );
 }
 
 
