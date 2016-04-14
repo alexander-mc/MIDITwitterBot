@@ -338,24 +338,9 @@ function voiceEventsBetweenMeasures(lines, beginMeasure, endMeasure){
 							// keep track of note end, in case we need to add rest before next note
 							// lastEndingRecorded[channel] = eventTime;
 						}
-						// else{
-						// 	// note
-						// 	var duration = eventTime - hangingNoteStart;  // in midi clicks
-						// 	// console.log('note ' + pitch + ' ' + duration);
-						// 	// convert to 4=quarter, 2=half, 8=eighth
-						// 	if(duration > PADDING)
-						// 		allChannels[channel].push( lilypondFormattedNote(hangingNotePitch, duration) );
-						// 	if(eventTime duration > measureClockEnd + PADDING){
-						// 		console.log('note ' + lilypondFormattedNote(hangingNotePitch, duration) + ' extends past measure ' + m);
-						// 		console.log('     ' + (eventTime-duration) + ' + ' + duration + ' passes ' + measureClockEnd);
-						// 	}
-						// 	// clear noteOn from bank
-						// 	allPitches[ channel ][ hangingNotePitch ] = undefined;
-						// 	// keep track of note end, in case we need to add rest before next note
-						// 	// lastEndingRecorded[channel] = eventTime;
-						// }
+
 						// as long as this is not the first beat of the next measure, add note
-						if(eventTime !=  (m+1) * MEASURE_LENGTH){
+						if(eventTime != (m+1) * MEASURE_LENGTH){
 							allPitches[ channel ][ pitch ] = eventTime;
 							// console.log('setting pitch ' + pitch + ' on channel ' + channel);
 						}
@@ -365,12 +350,6 @@ function voiceEventsBetweenMeasures(lines, beginMeasure, endMeasure){
 						avgPitchCount[channel]++;
 					}
 				}
-			}
-		}
-		for(var i = 0; i < 16; i++){
-			if(activeChannel[i] && !channelWriteThisMeasure[i]){
-				// write a rest to fill the measure
-				allChannels[i].push( lilypondFormattedNote(-1, measureClockEnd - measureClockBegin) );
 			}
 		}
 		// close up shop, we're done with this measure
@@ -384,6 +363,8 @@ function voiceEventsBetweenMeasures(lines, beginMeasure, endMeasure){
 					console.log('hanging note: ' + lilypondFormattedNote( i, duration) + ' channel:' + c + '  duration:' + duration );
 					// convert to 4=quarter, 2=half, 8=eighth
 					allChannels[ c ].push( lilypondFormattedNote( i, duration) );
+					activeChannel[c] = true;
+					channelWriteThisMeasure[c] = true;
 					// clear noteOn from bank
 					allPitches[ c ][ i ] = undefined;
 					// keep track of note end, in case we need to add rest before next note
@@ -392,6 +373,14 @@ function voiceEventsBetweenMeasures(lines, beginMeasure, endMeasure){
 				}
 			}
 		}
+
+		for(var i = 0; i < 16; i++){
+			if(activeChannel[i] && !channelWriteThisMeasure[i]){
+				// write a rest to fill the measure
+				allChannels[i].push( lilypondFormattedNote(-1, measureClockEnd - measureClockBegin) );
+			}
+		}
+
 		// add white space bumper between measures
 		for(var i = 0; i < 16; i++){
 			if(allChannels[i].length){
