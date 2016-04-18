@@ -717,6 +717,10 @@ cropMIDICSV: function(midiCSVArray, startMeasure, endMeasure, speed_adjust){
 			}
 			else if (eventType == 'Control_c'){				
 			}
+			else if(eventType == 'Title_t'){
+				midiCSVArray[i][3] = '"."';
+				croppedArray.push(midiCSVArray[i]);
+			}
 			else if(eventType == 'Program_c' && Number(midiCSVArray[i][3].trim()) == 0){
 				// set instrument, in case one already exists
 				//      (harpsichord:[1, 0, Program_c, 0, 6])

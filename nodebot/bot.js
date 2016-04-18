@@ -101,7 +101,7 @@ walk( DIRECTORY_MIDI_FILES, function(err, results){
 
 	// filename = DIRECTORY_MIDI_FILES + 'Chorales/065300b_.mid';
 	// filename = DIRECTORY_MIDI_FILES + 'Bwv0936\ Little\ Prelude\ n4.mid';
-	filename = DIRECTORY_MIDI_FILES + 'Bwv1079\ The\ Musical\ Offering/Musical\ Offering\ n18\ Trio-Allegro.MID';
+	// filename = DIRECTORY_MIDI_FILES + 'Bwv1079\ The\ Musical\ Offering/Musical\ Offering\ n18\ Trio-Allegro.MID';
 	console.log(filename);
 
 	// convert file to CSV (make filename terminal readable, escape spaces)
@@ -127,8 +127,8 @@ walk( DIRECTORY_MIDI_FILES, function(err, results){
 		var trimLengthMeasures = Math.floor(Math.random() * 4 + 3);
 		var trimBeginMeasure = Math.floor( Math.random()*(total_num_measures-trimLengthMeasures) );
 
-		trimLengthMeasures = 3;
-		trimBeginMeasure = 88;
+		// trimLengthMeasures = 3;
+		// trimBeginMeasure = 88;
 
 		console.log( '  - Trimming measures ' + (trimBeginMeasure+1) + ' to ' + (trimBeginMeasure + trimLengthMeasures) );
 
