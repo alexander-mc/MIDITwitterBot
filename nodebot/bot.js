@@ -8,6 +8,8 @@ var config = require('./config');
 // start twit with keys
 var T = new Twit(config);
 
+var request = require('request');
+
 console.log('The bot is starting..');
 
 var midiParse = require('../MIDICSVReader.js');
@@ -67,31 +69,33 @@ var path = require('path');
 var walk = function(dir, done) {
   var results = [];
   fs.readdir(dir, function(err, list) {
-    if (err) return done(err);
-    var pending = list.length;
-    if (!pending) return done(null, results);
-    list.forEach(function(file) {
-      file = path.resolve(dir, file);
-      fs.stat(file, function(err, stat) {
-        if (stat && stat.isDirectory()) {
-          walk(file, function(err, res) {
-            results = results.concat(res);
-            if (!--pending) done(null, results);
-          });
-        } else {
-          results.push(file);
-          if (!--pending) done(null, results);
-        }
-      });
-    });
+	if (err) return done(err);
+	var pending = list.length;
+	if (!pending) return done(null, results);
+	list.forEach(function(file) {
+	  file = path.resolve(dir, file);
+	  fs.stat(file, function(err, stat) {
+		if (stat && stat.isDirectory()) {
+		  walk(file, function(err, res) {
+			results = results.concat(res);
+			if (!--pending) done(null, results);
+		  });
+		} else {
+		  results.push(file);
+		  if (!--pending) done(null, results);
+		}
+	  });
+	});
   });
 };
 
+var TRACK_FILENAME;
 
 walk( DIRECTORY_MIDI_FILES, function(err, results){
 	// randomly select file from directory
 	var selection = Math.floor(Math.random()*results.length);
 	var filename = results[selection];
+	TRACK_FILENAME = filename;
 
 	// filename = DIRECTORY_MIDI_FILES + 'Concertos/Bwv1047\ Brandenburg\ Concert\ n2\ 1mov.mid'
 	// filename = DIRECTORY_MIDI_FILES + 'Bwv772-786\ Two\ Part\ Inventions/Bwv784\ Invention\ n13.mid';
@@ -204,6 +208,8 @@ function lilyPondFinished(err, stdout, stderr){
 // trim
 // gm("img.png").extent([width, height, options])
 function croppingFinished() {
+
+	postToSoundcloud();
 	// console.log('  - posting to twitter..');
 	// var filename = '../music.png';
 	// var params = { encoding: 'base64' }
@@ -224,6 +230,102 @@ function croppingFinished() {
 	// 		console.log(data.created_at + ' : ' + data.text);
 	// 	}
 	// }
+}
+
+// function postToSoundcloud(){
+// 	request({
+// 		method: 'POST',
+// 		uri: 'https://api.soundcloud.com/tracks.json',
+// 		multipart: {
+// 			'oauth_token': '1-234936-219114350-43a18f89e2919',
+// 			'track': JSON.stringify({
+// 				'sharing': 'public',
+// 				'title': removeExtension(TRACK_FILENAME),
+// 				'asset_data': fs.createReadStream('../bin/music.wav')
+// 			})
+// 		}
+// 	},
+// 	function (error, response, body) {
+// 		if (error) {
+// 			return console.error('upload failed:', error);
+// 		}
+// 		console.log('Upload successful!  Server responded with:', body);
+// 	})	
+// }
+
+function postToSoundcloud(){
+	console.log('attempting to post to soundcloud');
+// curl -i -X POST "https://api.soundcloud.com/tracks.json" \
+// >            -F 'oauth_token=1-234936-219114350-43a18f89e2919' \
+// >            -F 'track[asset_data]=@music.wav' \
+// >            -F 'track[title]=A track' \
+// >            -F 'track[sharing]=public'
+
+	var formData = {
+		oauth_token: '1-234936-219114350-43a18f89e2919',
+		'track[asset_data]': fs.createReadStream('../bin/music.wav'),
+		'track[title]':  removeExtension(TRACK_FILENAME),
+		'track[sharing]': 'public'
+	}
+		// track[sharing]: 'public',
+		// track[title]: removeExtension(TRACK_FILENAME),
+		// track[asset_data]: fs.createReadStream('../bin/music.wav'),
+		// Pass data via Buffers
+		// track[asset_data]: new Buffer([1, 2, 3]),
+		// Pass data via Streams
+		// track[title]: fs.createReadStream(__dirname + '/unicycle.jpg'),
+		// Pass multiple values /w an Array
+		// attachments: [
+		// 	fs.createReadStream(__dirname + '/attachment1.jpg'),
+		// 	fs.createReadStream(__dirname + '/attachment2.jpg')
+		// ],
+		// Pass optional meta-data with an 'options' object with style: {value: DATA, options: OPTIONS}
+		// Use case: for some types of streams, you'll need to provide "file"-related information manually.
+		// See the `form-data` README for more information about options: https://github.com/form-data/form-data
+		// custom_file: {
+		// 	value:  fs.createReadStream('/dev/urandom'),
+		// 	options: {
+		// 		filename: 'topsecret.jpg',
+		// 		contentType: 'image/jpg'
+		// 	}
+		// }
+	// };
+	// function toBuffer(ab) {
+	// 	var buffer = new Buffer(ab.byteLength);
+	// 	var view = new Uint8Array(ab);
+	// 	for (var i = 0; i < buffer.length; ++i) {
+	// 		buffer[i] = view[i];
+	// 	}
+	// 	return buffer;
+	// }
+
+	console.log(formData);
+	var req = request.post({url:'https://api.soundcloud.com/tracks.json', 'formData': formData}, function optionalCallback(err, httpResponse, body) {
+		if (err) {
+			return console.error('upload failed:', err);
+		}
+		console.log('Upload successful!  Server responded with:', body);
+	});	
+	// var form = req.form();
+
+	// {'sharing': 'public',
+	// 'title': removeExtension(TRACK_FILENAME),
+	// 'asset_data': fs.createReadStream('../bin/music.wav')
+	// }
+
+// form.append('oauth_token', '1-234936-219114350-43a18f89e2919');
+// form.append('track', JSON.stringify(
+// 								{'sharing': 'public',
+// 								'title': removeExtension(TRACK_FILENAME),
+// 								'asset_data': fs.createReadStream('../bin/music.wav')
+// 								}) 
+// 			);
+// form.append('custom_file', fs.createReadStream('../bin/music.wav'));
+
+	// form.append('file', {
+	// 	filename: file.name,
+	// 	contentType: file.type
+	// });
 }
 
 /////////////////////////////////////////////////////////
