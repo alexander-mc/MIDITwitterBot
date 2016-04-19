@@ -5,7 +5,8 @@ var MIDI_INSTRUMENT = 6;
 var SPEED_ADJUST = 1.5; // inverted: larger than one is slower, less is faster
 
 
-var PADDING = 10;
+var PADDING = 15;
+//Apr 18, changed PADDING from 10 to 15, fixed a 128th note level quantization issue
 
 var trimBeginMeasure;
 
@@ -292,7 +293,7 @@ function voiceEventsBetweenMeasures(lines, beginMeasure, endMeasure){
 
 						var hangingNotes = [];  // store the pitch
 						for(var p = 0; p < 128; p++){
-							if(allPitches[channel][p] != undefined)
+							if(allPitches[channel] != undefined && allPitches[channel][p] != undefined)
 								hangingNotes.push(p);
 						}
 						if(hangingNotes.length == 1){
@@ -341,7 +342,8 @@ function voiceEventsBetweenMeasures(lines, beginMeasure, endMeasure){
 
 						// as long as this is not the first beat of the next measure, add note
 						if(eventTime != (m+1) * MEASURE_LENGTH){
-							allPitches[ channel ][ pitch ] = eventTime;
+							if(allPitches[ channel ] != undefined)
+								allPitches[ channel ][ pitch ] = eventTime;
 							// console.log('setting pitch ' + pitch + ' on channel ' + channel);
 						}
 
