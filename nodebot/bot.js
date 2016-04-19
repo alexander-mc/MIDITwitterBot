@@ -126,12 +126,12 @@ function pickRandomFile(){
 	// filename = DIRECTORY_MIDI_FILES + 'Bwv0936\ Little\ Prelude\ n4.mid';
 	// filename = DIRECTORY_MIDI_FILES + 'Bwv1079\ The\ Musical\ Offering/Musical\ Offering\ n18\ Trio-Allegro.MID';
 
-		midiToCSV(filename);
+		trimAndTypsetMIDI(filename);
 	});
 }
 
 
-function midiToCSV(filename){
+function trimAndTypsetMIDI(filename){
 
 	console.log(filename);
 
