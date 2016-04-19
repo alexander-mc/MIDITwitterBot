@@ -16,36 +16,10 @@ var midiParse = require('../MIDICSVReader.js');
 
 var DIRECTORY_MIDI_FILES = '/Users/robby/Code/MIDITwitterBot/Bach/';
 
-
 //////// write
 	// var fs = require('fs');
 	// var json = JSON.stringify(eventMsg, null, 2);
 	// fs.writeFile('tweet.json', json);
-
-///////////////////////////////////////////
-//  SOUNDCLOUD
-//////////////////////////////////////////////////////////
-// var SC = require('soundcloud');
-
-// var soundcloudConfig = require('./soundcloudConfig');
-
-// SC.initialize({
-//   client_id: soundcloudConfig['client_id'],
-//   redirect_uri: 'http://robbykraft.com'
-// });
-
-// var upload = SC.upload({
-//   file: aBigBlob, // a Blob of your WAV, MP3...
-//   title: 'This upload took quite some while'
-// });
-
-// upload.request.addEventListener('progress', function(e){
-//   console.log('progress: ', (e.loaded / e.total) * 100, '%');
-// });
-
-// upload.then(function(track){
-//   alert('Upload is done! Check your sound at ' + track.permalink_url);
-// });
 
 /////////////////////////////////////////////////////////
 ////////////////     TERMINAL     ///////////////////////
@@ -95,7 +69,6 @@ walk( DIRECTORY_MIDI_FILES, function(err, results){
 	// randomly select file from directory
 	var selection = Math.floor(Math.random()*results.length);
 	var filename = results[selection];
-	TRACK_FILENAME = filename;
 
 	// filename = DIRECTORY_MIDI_FILES + 'Concertos/Bwv1047\ Brandenburg\ Concert\ n2\ 1mov.mid'
 	// filename = DIRECTORY_MIDI_FILES + 'Bwv772-786\ Two\ Part\ Inventions/Bwv784\ Invention\ n13.mid';
@@ -130,6 +103,9 @@ walk( DIRECTORY_MIDI_FILES, function(err, results){
 		var total_num_measures = midiInfo['measures'];
 		var trimLengthMeasures = Math.floor(Math.random() * 4 + 3);
 		var trimBeginMeasure = Math.floor( Math.random()*(total_num_measures-trimLengthMeasures) );
+
+		// we have enough info to make the human-readable track name + measure num
+		TRACK_FILENAME = removeExtension(filename) + ' measures ' + (trimBeginMeasure+1) + '-' + (trimBeginMeasure + trimLengthMeasures)
 
 		// trimLengthMeasures = 3;
 		// trimBeginMeasure = 88;
@@ -191,7 +167,6 @@ walk( DIRECTORY_MIDI_FILES, function(err, results){
 	}
 });
 
-
 function lilyPondFinished(err, stdout, stderr){
 	// if(err)
 		// console.log(err);
@@ -202,131 +177,79 @@ function lilyPondFinished(err, stdout, stderr){
 	function addPadding(){
 		console.log('  - image cropped');
 		var cmdExtend = 'convert -background white -gravity center -extent 110%x110% ../bin/music.png ../bin/music.png';
-		exec(cmdExtend, croppingFinished);			
+		exec(cmdExtend, postToSoundcloud);			
 	}
 }
+
 // trim
 // gm("img.png").extent([width, height, options])
-function croppingFinished() {
-
-	postToSoundcloud();
-	// console.log('  - posting to twitter..');
-	// var filename = '../music.png';
-	// var params = { encoding: 'base64' }
-	// var b64 = fs.readFileSync(filename, params);
-	// T.post('media/upload', { media_data: b64 }, uploaded);
-	// function uploaded(err, data, response){
-	// 	var id = data.media_id_string;
-	// 	var tweet = {
-	// 		status: '',  // BWV 775: Invention 4 in D minor
-	// 		media_ids: [id]
-	// 	}
-	// 	T.post('statuses/update', tweet, tweeted);
-	// 	function tweeted(err, data, response){
-	// 		if(err){
-	// 			console.log("ERROR:");
-	// 			console.log(err);
-	// 		}
-	// 		console.log(data.created_at + ' : ' + data.text);
-	// 	}
-	// }
-}
-
-// function postToSoundcloud(){
-// 	request({
-// 		method: 'POST',
-// 		uri: 'https://api.soundcloud.com/tracks.json',
-// 		multipart: {
-// 			'oauth_token': '1-234936-219114350-43a18f89e2919',
-// 			'track': JSON.stringify({
-// 				'sharing': 'public',
-// 				'title': removeExtension(TRACK_FILENAME),
-// 				'asset_data': fs.createReadStream('../bin/music.wav')
-// 			})
-// 		}
-// 	},
-// 	function (error, response, body) {
-// 		if (error) {
-// 			return console.error('upload failed:', error);
-// 		}
-// 		console.log('Upload successful!  Server responded with:', body);
-// 	})	
-// }
 
 function postToSoundcloud(){
-	console.log('attempting to post to soundcloud');
-// curl -i -X POST "https://api.soundcloud.com/tracks.json" \
-// >            -F 'oauth_token=1-234936-219114350-43a18f89e2919' \
-// >            -F 'track[asset_data]=@music.wav' \
-// >            -F 'track[title]=A track' \
-// >            -F 'track[sharing]=public'
-
+	console.log('  - uploading to soundcloud..');	
 	var formData = {
 		oauth_token: '1-234936-219114350-43a18f89e2919',
 		'track[asset_data]': fs.createReadStream('../bin/music.wav'),
-		'track[title]':  removeExtension(TRACK_FILENAME),
+		'track[title]':  TRACK_FILENAME,
 		'track[sharing]': 'public'
 	}
-		// track[sharing]: 'public',
-		// track[title]: removeExtension(TRACK_FILENAME),
-		// track[asset_data]: fs.createReadStream('../bin/music.wav'),
-		// Pass data via Buffers
-		// track[asset_data]: new Buffer([1, 2, 3]),
-		// Pass data via Streams
-		// track[title]: fs.createReadStream(__dirname + '/unicycle.jpg'),
-		// Pass multiple values /w an Array
-		// attachments: [
-		// 	fs.createReadStream(__dirname + '/attachment1.jpg'),
-		// 	fs.createReadStream(__dirname + '/attachment2.jpg')
-		// ],
-		// Pass optional meta-data with an 'options' object with style: {value: DATA, options: OPTIONS}
-		// Use case: for some types of streams, you'll need to provide "file"-related information manually.
-		// See the `form-data` README for more information about options: https://github.com/form-data/form-data
-		// custom_file: {
-		// 	value:  fs.createReadStream('/dev/urandom'),
-		// 	options: {
-		// 		filename: 'topsecret.jpg',
-		// 		contentType: 'image/jpg'
-		// 	}
-		// }
-	// };
-	// function toBuffer(ab) {
-	// 	var buffer = new Buffer(ab.byteLength);
-	// 	var view = new Uint8Array(ab);
-	// 	for (var i = 0; i < buffer.length; ++i) {
-	// 		buffer[i] = view[i];
-	// 	}
-	// 	return buffer;
-	// }
-
-	console.log(formData);
 	var req = request.post({url:'https://api.soundcloud.com/tracks.json', 'formData': formData}, function optionalCallback(err, httpResponse, body) {
 		if (err) {
 			return console.error('upload failed:', err);
 		}
-		console.log('Upload successful!  Server responded with:', body);
+		console.log('soundcloud finished');
+
+		var bodyJson = JSON.parse(body);
+		console.log(bodyJson['permalink_url']);
+		console.log(bodyJson);
+		postTweets(bodyJson['permalink_url'] );
 	});	
-	// var form = req.form();
-
-	// {'sharing': 'public',
-	// 'title': removeExtension(TRACK_FILENAME),
-	// 'asset_data': fs.createReadStream('../bin/music.wav')
-	// }
-
-// form.append('oauth_token', '1-234936-219114350-43a18f89e2919');
-// form.append('track', JSON.stringify(
-// 								{'sharing': 'public',
-// 								'title': removeExtension(TRACK_FILENAME),
-// 								'asset_data': fs.createReadStream('../bin/music.wav')
-// 								}) 
-// 			);
-// form.append('custom_file', fs.createReadStream('../bin/music.wav'));
-
-	// form.append('file', {
-	// 	filename: file.name,
-	// 	contentType: file.type
-	// });
 }
+
+function postTweets(soundcloudFileURL){
+
+	tweetSheetMusicImage();
+
+	function replyTweetSoundcloudLink(tweetID){
+		console.log('  - second tweet, link to sound file');	
+		var tweet = {
+			status: TRACK_FILENAME + ' ' + soundcloudFileURL,
+			in_reply_to_status_id: tweetID
+		}
+		T.post('statuses/update', tweet, tweeted);
+		function tweeted(err, data, response){
+			if(err){
+				console.log("ERROR:");
+				console.log(err);
+			}
+			console.log(data.created_at + ' : ');
+		}
+	}
+
+	function tweetSheetMusicImage(){
+		console.log('  - first tweet, image');	
+		var filename = '../bin/music.png';
+		var params = { encoding: 'base64' }
+		var b64 = fs.readFileSync(filename, params);
+		T.post('media/upload', { media_data: b64 }, uploaded);
+		function uploaded(err, data, response){
+			var id = data.media_id_string;
+			var tweet = {
+				status: TRACK_FILENAME,  // BWV 775: Invention 4 in D minor
+				media_ids: [id]
+			}
+			T.post('statuses/update', tweet, tweeted);
+			function tweeted(err, data, response){
+				if(err){
+					console.log("ERROR:");
+					console.log(err);
+				}
+				var tweetID = data['id_str'];
+				replyTweetSoundcloudLink(tweetID);
+			}
+		}	
+	}
+}
+
 
 /////////////////////////////////////////////////////////
 ////////////////      STREAM      ///////////////////////
