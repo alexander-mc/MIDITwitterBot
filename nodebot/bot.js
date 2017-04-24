@@ -6,6 +6,8 @@ var DIRECTORY_MIDI_FILES = '/Users/robby/Code/MIDITwitterBot/Bach/';
 var TRACKNAME;
 var UPLOAD_ACCESS_FLAG = true;
 
+var soundcloudUserID = '219114350';
+
 // node modules
 var Twit = require('twit');
 var request = require('request');
@@ -77,11 +79,11 @@ function cleanMultiplePages(){
 
 
 // begin the bot here
-// start();
+start();
 
 // or begin partial execution with one of these:
-onlyBuildSong();
-// onlyUpload('');
+// onlyBuildSong();
+// onlyUpload('Chorales/Bwv768 Chorale and Variations/bsgjg_b measures 19-24');  // needs the song name
 
 
 // 3 ways to start the bot:
@@ -126,6 +128,9 @@ function pickRandomFile(){
 	// filename = DIRECTORY_MIDI_FILES + 'Bwv0936\ Little\ Prelude\ n4.mid';
 	// filename = DIRECTORY_MIDI_FILES + 'Bwv1079\ The\ Musical\ Offering/Musical\ Offering\ n18\ Trio-Allegro.MID';
 
+		// filename = '/Users/robby/Code/MIDITwitterBot/Bach/Bwv0572 Fantasia.mid';
+		// filename = '/Users/robby/Code/MIDITwitterBot/Bach/Bwv0816 French Suite n5.mid';
+		// filename = '/Users/robby/Code/MIDITwitterBot/Bach/Harpsichord Concertos/Bwv1054 Harpsichord Concerto n3 1mov.mid';
 		trimAndTypsetMIDI(filename);
 	});
 }
@@ -162,8 +167,8 @@ function trimAndTypsetMIDI(filename){
 		var trimBeginMeasure = Math.floor( Math.random()*(total_num_measures-trimLengthMeasures) );
 
 
-		// trimBeginMeasure = 3;
-		// trimLengthMeasures = 4;
+		// trimBeginMeasure = 99;
+		// trimLengthMeasures = 5;
 
 
 		// we have enough info to make the human-readable track name + measure num
@@ -189,30 +194,47 @@ function trimAndTypsetMIDI(filename){
 			exec(cmd, midiFileWritten);
 		});
 
-		function midiFileWritten(){
+		function midiFileWritten(err){
+			if(err){
+				console.log(err);
+				return;
+			}
 			console.log( '  - MIDI file trimmed' );
 			var lilyPondString = midiParse.lilypondTypesetMeasures(midiFileArray, trimBeginMeasure, trimBeginMeasure + trimLengthMeasures);
 			console.log('  - Typset: ' + TRACKNAME);
 			fs.writeFile('../bin/music.ly', lilyPondString, function (err) {
-				var cmd = '/Applications/LilyPond.app/Contents/Resources/bin/lilypond -fpng -dresolution=220 -o ../bin/music ../bin/music.ly';
-				exec(cmd, lilyPondFinished);
+				// var cmd = '/Applications/LilyPond.app/Contents/Resources/bin/lilypond -fpng -dresolution=220 -o ../bin/music ../bin/music.ly';
+				// exec(cmd, lilyPondFinished);
+				// using Musescore instead of Lilypond+my midi parser for now
+				var cmd = '../musescore/MuseScore\\ 2.app/Contents/MacOS/./mscore -o ../bin/music.mscz ../bin/music_trim.mid -S ../musescore/five.mss';
+				exec(cmd, museScoreStyled);
 			});
 		}
 	}
+}
+
+function museScoreStyled(err, stdout, stderr){
+	// Musescore style files only apply if the output is a .mscz file. 2 steps to get it into a .png
+	var cmd = '../musescore/MuseScore\\ 2.app/Contents/MacOS/./mscore -o ../bin/music.png ../bin/music.mscz';
+	exec(cmd, lilyPondFinished);
 }
 
 function lilyPondFinished(err, stdout, stderr){
 	fs.exists('../bin/music-page1.png', function(exists) {
 		if (exists) {
 			console.log('STOP - sheet music exceeded 1 page. restarting...');
-			cleanMultiplePages();
-			start();
+			// cleanMultiplePages();
+			// start();
+			return;
 		}
 		else{
 			// proceed
 			// proper only 1 image exists: trim it and add padding
 
-			var cmdTrim = 'convert -trim ../bin/music.png ../bin/music.png'
+			// Lilypond outputs as music.png
+			// var cmdTrim = 'convert -trim ../bin/music.png ../bin/music.png'
+			// Musescore outputs as music-1.png
+			var cmdTrim = 'convert -trim ../bin/music-1.png ../bin/music.png'
 			exec(cmdTrim, addPadding);
 			function addPadding(){
 				console.log('  - image cropped');
@@ -272,13 +294,32 @@ function postToSoundcloud(){
 		if (err) {
 			return console.error('upload failed:', err);
 		}
-		console.log('soundcloud finished');
+		else{
+			console.log('  - audio upload complete');
+			console.log('httpResponse');
+			console.log(httpResponse);
+			console.log('body');
+			console.log(body);
 
-		var bodyJson = JSON.parse(body);
-		console.log(bodyJson['permalink_url']);
-		console.log(bodyJson);
-		postTweets(bodyJson['permalink_url'] );
+			setTimeout(getTracks, 10000);
+			// var bodyJson = JSON.parse(body);
+			// postTweets(bodyJson['permalink_url'] );
+		}
 	});	
+}
+
+function getTracks(){
+	var url = 'http://api.soundcloud.com/users/' + soundcloudUserID + '/tracks/?client_id=' + soundcloudConfig["client_id"];
+	request({url: url}, function (error, response, body) {
+		var bodyJson = JSON.parse(body);
+		if(bodyJson.length){
+			// this will be the most recent track, the one just uploaded
+			var track0 = bodyJson[0];
+			var url = track0["permalink_url"];
+			console.log(url);
+			postTweets(url);
+		}
+	});
 }
 
 function postTweets(soundcloudFileURL){
